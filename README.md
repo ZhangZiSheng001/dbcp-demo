@@ -87,7 +87,7 @@ password=root
 
 ### 编写JDBCUtil用于获得连接对象
 这里设置工具类的目的是避免多个线程使用同一个连接对象，并提供了释放资源的方法（注意，考虑到重用性，这里并不会关闭连接）。  
-路径：`cn.zzs.jdbc`
+路径：`cn.zzs.dbcp`
 ```java
 /**
  * @ClassName: JDBCUtil
