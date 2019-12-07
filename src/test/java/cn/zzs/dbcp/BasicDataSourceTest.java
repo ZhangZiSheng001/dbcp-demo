@@ -11,7 +11,6 @@ import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
 
 /**
- * @ClassName: BasicDataSourceTest
  * @Description: 测试使用BasicDataSource获取连接并操作数据库
  * @author: zzs
  * @date: 2019年8月31日 下午9:39:54

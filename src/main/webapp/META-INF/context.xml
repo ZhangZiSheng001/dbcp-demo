@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+	<Resource 
+	    name="bean/SharedPoolDataSourceFactory" 
+	    auth="Container"
+		type="org.apache.commons.dbcp2.datasources.SharedPoolDataSource"
+		factory="org.apache.commons.dbcp2.datasources.SharedPoolDataSourceFactory" 
+		singleton="false" 
+		driverClassName="com.mysql.cj.jdbc.Driver"
+		url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+		username="root"
+		password="root" 
+		maxTotal="8" 
+		maxIdle="10" 
+		dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
+		 />
+    <Resource 
+        name="bean/PerUserPoolDataSourceFactory" 
+        auth="Container"
+        type="org.apache.commons.dbcp2.datasources.PerUserPoolDataSource"
+        factory="org.apache.commons.dbcp2.datasources.PerUserPoolDataSourceFactory" 
+        singleton="false" 
+        driverClassName="com.mysql.cj.jdbc.Driver"
+        url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+        username="root"
+        password="root" 
+        maxTotal="8" 
+        maxIdle="10" 
+        dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
+         />		 
+    <Resource 
+        name="bean/DriverAdapterCPDS" 
+        auth="Container"
+        type="org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS"
+        factory="org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS" 
+        singleton="false" 
+        driverClassName="com.mysql.cj.jdbc.Driver"
+        url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+        userName="root"
+        userPassword="root" 
+        maxIdle="10" 
+         />		 
+</Context>

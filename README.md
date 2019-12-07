@@ -1,29 +1,91 @@
-# 简介  
-DBCP用于创建和管理连接，利用“池”的方式复用连接对象，减少了资源开销。 
- 
-连接池的参数可以采用`properties`文件来配置：配置包括驱动、链接、账号密码，连接池基本参数，事务相关参数，连接测试的参数以及内存回收参数等。  
+# 目录
+
+* [简介](#简介)
+* [使用例子](#使用例子)
+  * [需求](#需求)
+  * [工程环境](#工程环境)
+  * [主要步骤](#主要步骤)
+  * [创建项目](#创建项目)
+  * [引入依赖](#引入依赖)
+  * [编写`jdbc.prperties`](#编写jdbcprperties)
+  * [获取连接池和获取连接](#获取连接池和获取连接)
+  * [编写测试类](#编写测试类)
+* [配置文件详解](#配置文件详解)
+  * [数据库连接参数](#数据库连接参数)
+  * [连接池数据基本参数](#连接池数据基本参数)
+  * [连接检查参数](#连接检查参数)
+  * [缓存语句](#缓存语句)
+  * [事务相关参数](#事务相关参数)
+  * [连接泄漏回收参数](#连接泄漏回收参数)
+  * [其他](#其他)
+* [源码分析](#源码分析)
+  * [数据源创建](#数据源创建)
+    * [`BasicDataSource.getConnection()`](#basicdatasourcegetconnection)
+    * [`BasicDataSource.createDataSource()`](#basicdatasourcecreatedatasource)
+  * [获取连接对象](#获取连接对象)
+    * [`PoolingDataSource.getConnection()`](#poolingdatasourcegetconnection)
+    * [`GenericObjectPool.borrowObject()`](#genericobjectpoolborrowobject)
+    * [`GenericObjectPool.create()`](#genericobjectpoolcreate)
+    * [`PoolableConnectionFactory.makeObject()`](#poolableconnectionfactorymakeobject)
+  * [空闲对象回收器`Evictor`](#空闲对象回收器evictor)
+    * [`BasicDataSource.startPoolMaintenance()`](#basicdatasourcestartpoolmaintenance)
+    * [`BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)`](#basegenericobjectpoolsettimebetweenevictionrunsmillislong)
+    * [`BaseGenericObjectPool.startEvictor(long)`](#basegenericobjectpoolstartevictorlong)
+    * [`EvictionTimer.schedule(Evictor, long, long)`](#evictiontimerscheduleevictor-long-long)
+    * [`BaseGenericObjectPool.Evictor`](#basegenericobjectpoolevictor)
+    * [`GenericObjectPool.evict()`](#genericobjectpoolevict)
+* [通过`JNDI`获取数据源对象](#通过jndi获取数据源对象)
+  * [需求](#需求-1)
+  * [引入依赖](#引入依赖-1)
+  * [编写`context.xml`](#编写contextxml)
+  * [编写`web.xml`](#编写webxml)
+  * [编写`jsp`](#编写jsp)
+  * [测试结果](#测试结果)
+* [使用`DBCP`测试两阶段提交](#使用dbcp测试两阶段提交)
+  * [准备工作](#准备工作)
+  * [`mysql`的`XA`事务使用](#mysql的xa事务使用)
+  * [引入依赖](#引入依赖-2)
+  * [获取`BasicManagedDataSource`](#获取basicmanageddatasource)
+  * [编写两阶段提交的代码](#编写两阶段提交的代码)
+
+
+# 简介 
+
+`DBCP`用于创建和管理连接，利用“池”的方式复用连接减少资源开销。目前，`tomcat`自带的连接池就是`DBCP`，Spring开发组也推荐使用`DBCP`。
+
+`DBCP`除了我们熟知的使用方式外，还支持通过`JNDI`获取数据源，并支持获取`JTA`或`XA`事务中用于`2PC`（两阶段提交）的连接对象，本文也将以例子说明。
+
+本文将包含以下内容(因为篇幅较长，可根据需要选择阅读)：
+
+1. `DBCP`的使用方法（入门案例说明）；
+2. `DBCP`的配置参数详解；
+3. `DBCP`主要源码分析；
+4. `DBCP`其他特性的使用方法，如`JNDI`和`JTA`支持。
+
+
 
 # 使用例子
+
 ## 需求
-使用DBCP连接池获取连接对象，对用户数据进行增删改查。
+使用`DBCP`连接池获取连接对象，对用户数据进行简单的增删改查。
 
 ## 工程环境
-JDK：1.8.0_201  
+`JDK`：1.8.0_201  
 
-maven：3.6.1  
+`maven`：3.6.1  
 
-IDE：STS4  
+`IDE`：eclipse 4.12  
 
-mysql-connector-java：8.0.15  
+`mysql-connector-java`：8.0.15  
 
-mysql：5.7  
+`mysql`：5.7  
 
-DBCP：2.6.0  
+`DBCP`：2.6.0  
 
 
 ## 主要步骤
 
-1. 编写`jdbc.properties`，设置数据库连接参数和连接池参数。  
+1. 编写`jdbc.properties`，设置数据库连接参数和连接池基本参数等。  
 
 2. 通过`BasicDataSourceFactory`加载`jdbc.properties`，并获得`BasicDataDource`对象。  
 
@@ -32,7 +94,7 @@ DBCP：2.6.0
 4. 使用`Connection`对象对用户表进行增删改查。  
 
 ## 创建项目
-项目类型Maven Project，打包方式jar。  
+项目类型Maven Project，打包方式war（其实jar也可以，之所以使用war是为了测试`JNDI`）。  
 
 ## 引入依赖
 ```xml
@@ -63,8 +125,8 @@ DBCP：2.6.0
 </dependency>
 ```
 
-## 编写jdbc.prperties
-路径resources目录下，考虑篇幅，这里仅给出数据库连接参数和连接池参数，具体参见项目源码。另外，数据库sql脚本也在该目录下。  
+## 编写`jdbc.prperties`
+路径`resources`目录下，因为是入门例子，这里仅给出数据库连接参数和连接池基本参数，后面源码会对配置参数进行详细说明。另外，数据库`sql`脚本也在该目录下。  
 
 ```properties
 #数据库基本配置
@@ -96,7 +158,7 @@ maxWait=-1
 ```
 
 ## 获取连接池和获取连接  
-项目中编写了JDBCUtil来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。  
+项目中编写了`JDBCUtil`来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。  
 
 路径：`cn.zzs.dbcp`
 ```java
@@ -147,11 +209,15 @@ maxWait=-1
 	}
 ```
 
-# 配置文件详解
-这部分内容从网上参照过来，因为发的到处都是，所以暂时没找到出处。因为最新版本更新了不少内容，所以我修正了下，后面找到出处再补上参考资料。  
 
-## 数据库基本配置
-注意，这里在url后面拼接了多个参数用于避免乱码、时区报错问题。  
+
+# 配置文件详解
+
+这部分内容从网上参照过来，同样的内容发的到处都是，暂时没找到出处。因为内容太过杂乱，而且最新版本更新了不少内容，所以我花了好大功夫才改好，后面找到出处再补上参考资料吧。  
+
+## 数据库连接参数
+注意，这里在`url`后面拼接了多个参数用于避免乱码、时区报错问题。  补充下，如果不想加入时区的参数，可以在`mysql`命令窗口执行如下命令：`set global time_zone='+8:00'`。
+
 
 ```properties
 driverClassName=com.mysql.cj.jdbc.Driver
@@ -160,8 +226,8 @@ username=root
 password=root
 ```
 
-## 连接池数据相关参数
-这几个参数都比较常用，具体设置多少需根据具体项目调整。  
+## 连接池数据基本参数
+这几个参数都比较常用，具体设置多少需根据项目调整。  
 
 ```properties
 #-------------连接数据相关参数--------------------------------
@@ -188,7 +254,9 @@ minIdle=0
 maxWaitMillis=-1
 ```
 
-## 连接检查情况
+## 连接检查参数
+
+针对连接失效和连接泄露的问题，建议开启`testOnBorrow`和空闲资源回收器。  
 
 ```properties
 #-------------连接检查情况--------------------------------
@@ -244,6 +312,9 @@ logExpiredConnections=true
 ```
 
 ## 缓存语句
+
+缓存语句建议开启。
+
 ```properties
 #-------------缓存语句--------------------------------
 #是否缓存PreparedStatements，这个功能在一些支持游标的数据库中可以极大提高性能（Oracle、SQL Server、DB2、Sybase）
@@ -261,7 +332,9 @@ cacheState=true
 
 ```
 
-## 事务相关的属性
+## 事务相关参数
+
+这里的参数主要和事务相关，一般默认就行。
 
 ```properties
 #-------------事务相关的属性--------------------------------
@@ -286,7 +359,7 @@ autoCommitOnReturn=true
 #默认true
 rollbackOnReturn=true
 
-#连接池创建的连接的默认的数据库名
+#连接池创建的连接的默认的数据库名，如果是使用DBCP的XA连接必须设置，不然注册不了多个资源管理器
 #defaultCatalog=github_demo
 
 #连接池创建的连接的默认的schema。如果是mysql，这个设置没什么用。
@@ -294,6 +367,9 @@ rollbackOnReturn=true
 ```
 
 ## 连接泄漏回收参数
+
+当我们从连接池获得了连接对象，但因为疏忽或其他原因没有`close`，这个时候这个连接对象就是一个泄露资源。通过配置以下参数可以回收这部分对象。
+
 ```properties
 #-------------连接泄漏回收参数--------------------------------
 #当未使用的时间超过removeAbandonedTimeout时，是否视该连接为泄露连接并删除（当getConnection()被调用时检测）
@@ -321,6 +397,9 @@ abandonedUsageTracking=false
 ```
 
 ## 其他
+
+这部分参数比较少用。
+
 ```properties
 #-------------其他--------------------------------
 #是否使用快速失败机制
@@ -360,42 +439,48 @@ accessToUnderlyingConnectionAllowed=false
 #    conn.close();
 ```
 
+
+
 # 源码分析
-通过使用例子可知，DBCP的`BasicDataSource`是我们获取连接对象的入口，至于`BasicDataSourceFactory`只是创建和初始化`BasicDataSource`实例，就不看了。这里直接从`BasicDataSource`的`getConnection()`方法开始分析。  
+
+通过使用例子可知，`DBCP`的`BasicDataSource`是我们获取连接对象的入口，至于`BasicDataSourceFactory`只是创建和初始化`BasicDataSource`实例，它的代码就不看了。这里直接从`BasicDataSource`的`getConnection()`方法开始分析。  
 
 注意：考虑篇幅和可读性，以下代码经过删减，仅保留所需部分。  
 
 ## 数据源创建
-研究数据源创建之前，先来看下DBCP的几种数据源：  
+研究数据源创建之前，先来看下`DBCP`的几种数据源：  
 
 类名|描述
 -|-
-BasicDataSource|用于满足基本数据库操作需求的数据源
-BasicManagedDataSource|BasicDataSource的子类，用于创建支持XA事务或JTA事务的连接
-PoolingDataSource|BasicDataSource中实际调用的数据源，可以说BasicDataSource只是封装了PoolingDataSource
-ManagedDataSource|PoolingDataSource的子类，用于支持XA事务或JTA事务的连接。是BasicManagedDataSource中实际调用的数据源，可以说BasicManagedDataSource只是封装了ManagedDataSource
-InstanceKeyDataSource|用于支持JDNI环境的数据源
-PerUserPoolDataSource|InstanceKeyDataSource的子类，针对每个用户会单独分配一个连接池，每个连接池可以设置不同属性。例如以下需求，相比user，admin可以创建更多地连接以保证
-SharedPoolDataSource|InstanceKeyDataSource的子类，不同用户共享一个连接池
+`BasicDataSource`|用于满足基本数据库操作需求的数据源
+`BasicManagedDataSource`|`BasicDataSource`的子类，用于创建支持`XA`事务或`JTA`事务的连接
+`PoolingDataSource`|`BasicDataSource`中实际调用的数据源，可以说`BasicDataSource`只是封装了`PoolingDataSource`
+`ManagedDataSource`|`PoolingDataSource`的子类，用于支持`XA`事务或`JTA`事务的连接。是`BasicManagedDataSource`中实际调用的数据源，可以说`BasicManagedDataSource`只是封装了`ManagedDataSource`
+`InstanceKeyDataSource`|用于支持`JDNI`环境的数据源
+`PerUserPoolDataSource`|`InstanceKeyDataSource`的子类，针对每个用户会单独分配一个连接池，每个连接池可以设置不同属性。例如以下需求，相比user，`admin`可以创建更多地连接以保证
+`SharedPoolDataSource`|`InstanceKeyDataSource`的子类，不同用户共享一个连接池
 
-本文的源码分析仅会涉及到BasicDataSource（包含它封装的PoolingDataSource），其他的数据源暂时不扩展。  
+本文的源码分析仅会涉及到`BasicDataSource`（包含它封装的`PoolingDataSource`），其他的数据源暂时不扩展。  
 
-### BasicDataSource.getConnection()
+### `BasicDataSource.getConnection()`
+
+`BasicDataSource`是在第一次被调用获取获取连接时才创建`PoolingDataSource`对象。
+
 ```java
     public Connection getConnection() throws SQLException {
         return createDataSource().getConnection();
     }
 ```
 
-### BasicDataSource.createDataSource()
-这里涉及到四个类，如下：  
+### `BasicDataSource.createDataSource()`
+接下来的方法又会涉及到四个类，如下：  
 
-类名 | 描述
--|-
-ConnectionFactory | 用于生成原生的Connection对象
-PoolableConnectionFactory | 用于生成包装过的Connection对象，持有ConnectionFactory对象的引用
-GenericObjectPool | 数据库连接池，用于管理连接。持有PoolableConnectionFactory对象的引用
-PoolingDataSource | 数据源，持有GenericObjectPool的引用。我们调用BasicDataSource获取连接对象，实际上调用的是它的getConnection()方法
+| 类名                        | 描述                                                         |
+| --------------------------- | ------------------------------------------------------------ |
+| `ConnectionFactory`         | 用于生成原生的Connection对象                                 |
+| `PoolableConnectionFactory` | 用于生成包装过的Connection对象，持有`ConnectionFactory`对象的引用 |
+| `GenericObjectPool`         | 数据库连接池，用于管理连接。持有`PoolableConnectionFactory`对象的引用 |
+| `PoolingDataSource`         | 数据源，持有`GenericObjectPool`的引用。我们调用`BasicDataSource`获取连接对象，实际上调用的是它的`getConnection()`方法 |
 
 ```java
     // 数据源
@@ -426,7 +511,7 @@ PoolingDataSource | 数据源，持有GenericObjectPool的引用。我们调用B
             PoolableConnectionFactory poolableConnectionFactory;
             try {
                 poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
-                // 设置PreparedStatements缓存（其实上面创建工厂就设置了，这里没必要再设置一遍）
+                // 设置PreparedStatements缓存（其实在这里可以发现，上面创建池化工厂时就设置了缓存，这里没必要再设置一遍）
                 poolableConnectionFactory.setPoolStatements(poolPreparedStatements);
                 poolableConnectionFactory.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
                 success = true;
@@ -484,20 +569,25 @@ PoolingDataSource | 数据源，持有GenericObjectPool的引用。我们调用B
 ```
 
 ## 获取连接对象
-在介绍下面内容前先了解下DBCP中几个Connection实现类。  
+上面已经大致分析了数据源对象的获取过程，接下来研究下连接对象的获取。在此之前先了解下`DBCP`中几个`Connection`实现类。  
 
 类名|描述
 -|-
-DelegatingConnection|Connection实现类，是以下几个类的父类
-PoolingConnection|用于包装原生的Connection，支持prepareStatement和prepareCall
-PoolableConnection|用于包装原生的PoolingConnection(如果没有开启poolPreparedStatements，则包装的只是原生Connection)，调用close()时只是将连接还给连接池
-PoolableManagedConnection|PoolableConnection的子类，用于包装ManagedConnection，支持JTA和XA事务
-ManagedConnection|用于包装原生的Connection，支持JTA和XA事务
-PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyingConnectionAllowed才能获取底层连接对象。我们获取到的就是这个对象
+`DelegatingConnection`|`Connection`实现类，是以下几个类的父类
+`PoolingConnection`|用于包装原生的`Connection`，支持缓存`prepareStatement`和`prepareCall`
+`PoolableConnection`|用于包装原生的`PoolingConnection`(如果没有开启`poolPreparedStatements`，则包装的只是原生`Connection`)，调用`close()`时只是将连接还给连接池
+`PoolableManagedConnection`|`PoolableConnection`的子类，用于包装`ManagedConnection`，支持`JTA`和`XA`事务
+`ManagedConnection`|用于包装原生的`Connection`，支持`JTA`和`XA`事务
+`PoolGuardConnectionWrapper`|用于包装`PoolableConnection`，当`accessToUnderlyingConnectionAllowed`才能获取底层连接对象。我们获取到的就是这个对象
 
 
 
-### PoolingDataSource.getConnection()
+### `PoolingDataSource.getConnection()`
+
+前面已经说过，`BasicDataSource`本质上是调用`PoolingDataSource`的方法来获取连接，所以这里从`PoolingDataSource.getConnection()`开始研究。
+
+以下代码可知，该方法会从连接池中“借出”连接。
+
 ```java
     public Connection getConnection() throws SQLException {
         // 这个泛型C指的是PoolableConnection对象
@@ -511,32 +601,25 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
     }
 ```
 
-### GenericObjectPool.borrowObject()
+### `GenericObjectPool.borrowObject()`
+
+`GenericObjectPool`是一个很简练的类，里面涉及到的属性设置和锁机制都涉及得非常巧妙。
+
 ```java
     // 存放着连接池所有的连接对象（但不包含已经释放的）
     private final Map<IdentityWrapper<T>, PooledObject<T>> allObjects =
         new ConcurrentHashMap<>();
     // 存放着空闲连接对象的阻塞队列
     private final LinkedBlockingDeque<PooledObject<T>> idleObjects;
-    // 为1表示当前正在创建新连接对象
+    // 为n>1表示当前有n个线程正在创建新连接对象
     private long makeObjectCount = 0;
     // 创建连接对象时所用的锁
     private final Object makeObjectCountLock = new Object();
     // 连接对象创建总数量
     private final AtomicLong createCount = new AtomicLong(0);
-    // 连接对象借出总数量
-    private final AtomicLong borrowedCount = new AtomicLong(0);
-    // 连接对象归还总数量
-    private final AtomicLong returnedCount = new AtomicLong(0);
-    // 连接对象销毁总数量
-    final AtomicLong destroyedCount = new AtomicLong(0);
-    final AtomicLong destroyedByEvictorCount = new AtomicLong(0);
-    // 三个计时相关对象
-    private final StatsStore activeTimes = new StatsStore(MEAN_TIMING_STATS_CACHE_SIZE);
-    private final StatsStore idleTimes = new StatsStore(MEAN_TIMING_STATS_CACHE_SIZE);
-    private final StatsStore waitTimes = new StatsStore(MEAN_TIMING_STATS_CACHE_SIZE);
 
     public T borrowObject() throws Exception {
+        // 如果我们设置了连接获取等待时间，“借出”过程就必须在指定时间内完成
         return borrowObject(getMaxWaitMillis());
     }
 
@@ -544,7 +627,7 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
         // 校验连接池是否打开状态
         assertOpen();
         
-        // 如果设置了removeAbandonedOnBorrow，达到触发条件是会遍历所有连接，未使用时长超过removeAbandonedTimeout的将被释放掉
+        // 如果设置了removeAbandonedOnBorrow，达到触发条件是会遍历所有连接，未使用时长超过removeAbandonedTimeout的将被释放掉（一般可以检测出泄露连接）
         final AbandonedConfig ac = this.abandonedConfig;
         if (ac != null && ac.getRemoveAbandonedOnBorrow() &&
                 (getNumIdle() < 2) &&
@@ -572,7 +655,7 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
                     create = true;
                 }
             }
-            // 连接数达到maxTotal需要阻塞等待，会等待空闲队列中连接
+            // 连接数达到maxTotal且暂时没有空闲连接，这时需要阻塞等待，直到获得空闲队列中的连接或等待超时
             if (blockWhenExhausted) {
                 if (p == null) {
                     if (borrowMaxWaitMillis < 0) {
@@ -584,7 +667,7 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
                                 TimeUnit.MILLISECONDS);
                     }
                 }
-                // 这个时候还是没有就会抛出异常
+                // 这个时候还是没有就只能抛出异常
                 if (p == null) {
                     throw new NoSuchElementException(
                             "Timeout waiting for idle object");
@@ -653,7 +736,10 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
         return p.getObject();
     }
 ```
-### GenericObjectPool.create()
+### `GenericObjectPool.create()`
+
+这里在创建连接对象时采用的锁机制非常值得学习，简练且高效。
+
 ```java
     private PooledObject<T> create() throws Exception {
         int localMaxTotal = getMaxTotal();
@@ -734,7 +820,7 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
 
 ```
 
-### PoolableConnectionFactory.makeObject()
+### `PoolableConnectionFactory.makeObject()`
 ```java
     public PooledObject<PoolableConnection> makeObject() throws Exception {
         // 创建原生的Connection对象
@@ -802,10 +888,13 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
     }
 ```
 
-## 空闲对象回收器Evictor
-前面已经讲到当创建完数据源对象时会开启连接池的evictor线程。  
+## 空闲对象回收器`Evictor`
+以上基本已分析完连接对象的获取过程，下面再研究下空闲对象回收器。前面已经讲到当创建完数据源对象时会开启连接池的`evictor`线程，所以我们从`BasicDataSource.startPoolMaintenance()`开始分析。  
 
-### BasicDataSource.startPoolMaintenance()
+### `BasicDataSource.startPoolMaintenance()`
+
+前面说过`timeBetweenEvictionRunsMillis`为非正数时不会开启开启空闲对象回收器，从以下代码可以理解具体逻辑。
+
 ```java
     protected void startPoolMaintenance() {
         // 只有timeBetweenEvictionRunsMillis为正数，才会开启空闲对象回收器
@@ -814,20 +903,23 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
         }
     }
 ```
-### BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)
-这个BaseGenericObjectPool是上面说到的GenericObjectPool的父类。  
+### `BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)`
+这个`BaseGenericObjectPool`是上面说到的`GenericObjectPool`的父类。  
 
 ```java
     public final void setTimeBetweenEvictionRunsMillis(
             final long timeBetweenEvictionRunsMillis) {
         // 设置回收线程运行间隔时间
         this.timeBetweenEvictionRunsMillis = timeBetweenEvictionRunsMillis;
-        // 
+        // 继续调用本类的方法，下面继续进入方法分析
         startEvictor(timeBetweenEvictionRunsMillis);
     }
 ```
 
-### BaseGenericObjectPool.startEvictor(long)
+### `BaseGenericObjectPool.startEvictor(long)`
+
+这里会去定义一个`Evictor`对象，这个其实是一个Runnable对象，后面会讲到。
+
 ```java
     final void startEvictor(final long delay) {
         synchronized (evictionLock) {
@@ -845,8 +937,8 @@ PoolGuardConnectionWrapper|用于包装PoolableConnection，当accessToUnderlyin
     }
 ```
 
-### EvictionTimer.schedule(Evictor, long, long)
-DBCP是使用ScheduledThreadPoolExecutor来实现回收器的定时检测。  
+### `EvictionTimer.schedule(Evictor, long, long)`
+`DBCP`是使用`ScheduledThreadPoolExecutor`来实现回收器的定时检测。  涉及到`ThreadPoolExecutor`为`JDK`自带的`api`，这里不再深入分析线程池如何实现定时调度。感兴趣的朋友可以复习下常用的几款线程池。
 
 ```java
     static synchronized void schedule(
@@ -863,8 +955,8 @@ DBCP是使用ScheduledThreadPoolExecutor来实现回收器的定时检测。
         task.setScheduledFuture(scheduledFuture);
     }
 ```
-### BaseGenericObjectPool.Evictor
-Evictor是BaseGenericObjectPool的内部类，这里看下它的run方法。  
+### `BaseGenericObjectPool.Evictor`
+`Evictor`是`BaseGenericObjectPool`的内部类，实现了`Runnable`接口，这里看下它的run方法。  
 
 ```java
     class Evictor implements Runnable {
@@ -886,8 +978,9 @@ Evictor是BaseGenericObjectPool的内部类，这里看下它的run方法。
                     Thread.currentThread().setContextClassLoader(cl);
                 }
 
-                // 回收符合条件的对象
+               
                 try {
+                // 回收符合条件的对象，后面继续扩展
                     evict();
                 } catch(final Exception e) {
                     swallowException(e);
@@ -919,16 +1012,16 @@ Evictor是BaseGenericObjectPool的内部类，这里看下它的run方法。
     }
 ```
 
-### GenericObjectPool.evict()
+### `GenericObjectPool.evict()`
 这里的回收过程包括以下四道校验：  
 
-1. 按照evictionPolicy校验idleSoftEvictTime、idleEvictTime；  
+1. 按照`evictionPolicy`校验`idleSoftEvictTime`、`idleEvictTime`；  
 
-2. 利用工厂重新初始化样本，这里会校验maxConnLifetimeMillis（testWhileIdle为true）；  
+2. 利用工厂重新初始化样本，这里会校验`maxConnLifetimeMillis`（`testWhileIdle`为true）；  
 
-3. 校验maxConnLifetimeMillis和validationQueryTimeout（testWhileIdle为true）；  
+3. 校验`maxConnLifetimeMillis`和`validationQueryTimeout`（`testWhileIdle`为true）；  
 
-4. 校验所有连接的未使用时间是否超过removeAbandonedTimeout（removeAbandonedOnMaintenance为true）。  
+4. 校验所有连接的未使用时间是否超过r`emoveAbandonedTimeout`（`removeAbandonedOnMaintenance`为true）。  
 
 ```java
     public void evict() throws Exception {
@@ -1033,4 +1126,313 @@ Evictor是BaseGenericObjectPool的内部类，这里看下它的run方法。
         }
     }
 ```
+以上已基本研究完数据源创建、连接对象获取和空闲资源回收器，后续有空再做补充。
+
+
+
+#  通过`JNDI`获取数据源对象
+
+## 需求
+
+本文测试使用`JNDI`获取`PerUserPoolDataSource`和`SharedPoolDataSource`对象，选择使用`tomcat 9.0.21`作容器。
+
+如果之前没有接触过`JNDI`，并不会影响下面例子的理解，其实可以理解为像`spring`的`bean`配置和获取。
+
+源码分析时已经讲到，除了我们熟知的`BasicDataSource`，`DBCP`还提供了通过`JDNI`获取数据源，如下表。
+
+| 类名                    | 描述                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `InstanceKeyDataSource` | 用于支持`JDNI`环境的数据源，是以下两个类的父类               |
+| `PerUserPoolDataSource` | `InstanceKeyDataSource`的子类，针对每个用户会单独分配一个连接池，每个连接池可以设置不同属性。例如以下需求，相比user，`admin`可以创建更多地连接以保证 |
+| `SharedPoolDataSource`  | `InstanceKeyDataSource`的子类，不同用户共享一个连接池        |
+
+## 引入依赖
+本文在前面例子的基础上增加以下依赖，因为是web项目，所以打包方式为`war`：  
+```xml
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>jstl</artifactId>
+			<version>1.2</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet.jsp</groupId>
+			<artifactId>javax.servlet.jsp-api</artifactId>
+			<version>2.2.1</version>
+			<scope>provided</scope>
+		</dependency>
+```
+
+## 编写`context.xml`
+
+在`webapp`文件下创建目录`META-INF`，并创建`context.xml`文件。这里面的每个`resource`节点都是我们配置的对象，类似于`spring`的`bean`节点。其中`bean/DriverAdapterCPDS`这个对象需要被另外两个使用到。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+	<Resource 
+	    name="bean/SharedPoolDataSourceFactory" 
+	    auth="Container"
+		type="org.apache.commons.dbcp2.datasources.SharedPoolDataSource"
+		factory="org.apache.commons.dbcp2.datasources.SharedPoolDataSourceFactory" 
+		singleton="false" 
+		driverClassName="com.mysql.cj.jdbc.Driver"
+		url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+		username="root"
+		password="root" 
+		maxTotal="8" 
+		maxIdle="10" 
+		dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
+		 />
+    <Resource 
+        name="bean/PerUserPoolDataSourceFactory" 
+        auth="Container"
+        type="org.apache.commons.dbcp2.datasources.PerUserPoolDataSource"
+        factory="org.apache.commons.dbcp2.datasources.PerUserPoolDataSourceFactory" 
+        singleton="false" 
+        driverClassName="com.mysql.cj.jdbc.Driver"
+        url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+        username="root"
+        password="root" 
+        maxTotal="8" 
+        maxIdle="10" 
+        dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
+         />		 
+    <Resource 
+        name="bean/DriverAdapterCPDS" 
+        auth="Container"
+        type="org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS"
+        factory="org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS" 
+        singleton="false" 
+        driverClassName="com.mysql.cj.jdbc.Driver"
+        url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+        userName="root"
+        userPassword="root" 
+        maxIdle="10" 
+         />		 
+</Context>
+```
+
+## 编写`web.xml`
+
+在`web-app`节点下配置资源引用，每个`resource-env-ref`指向了我们配置好的对象。
+
+```xml
+    <resource-env-ref>
+        <description>Test DriverAdapterCPDS</description>
+        <resource-env-ref-name>bean/DriverAdapterCPDS</resource-env-ref-name>
+        <resource-env-ref-type>org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS</resource-env-ref-type>        
+    </resource-env-ref>	
+	<resource-env-ref>
+	    <description>Test SharedPoolDataSource</description>
+	    <resource-env-ref-name>bean/SharedPoolDataSourceFactory</resource-env-ref-name>
+	    <resource-env-ref-type>org.apache.commons.dbcp2.datasources.SharedPoolDataSource</resource-env-ref-type>	    
+	</resource-env-ref>
+    <resource-env-ref>
+        <description>Test erUserPoolDataSource</description>
+        <resource-env-ref-name>bean/erUserPoolDataSourceFactory</resource-env-ref-name>
+        <resource-env-ref-type>org.apache.commons.dbcp2.datasources.erUserPoolDataSource</resource-env-ref-type>        
+    </resource-env-ref>	
+```
+
+## 编写`jsp`
+
+因为需要在`web`环境中使用，如果直接建类写个`main`方法测试，会一直报错的，目前没找到好的办法。这里就简单地使用`jsp`来测试吧(这是从tomcat官网参照的例子)。
+
+```jsp
+<body>
+    <%  
+        // 获得名称服务的上下文对象
+    	Context initCtx = new InitialContext();
+    	Context envCtx = (Context)initCtx.lookup("java:comp/env/");
+    	
+    	// 查找指定名字的对象
+    	DataSource ds = (DataSource)envCtx.lookup("bean/SharedPoolDataSourceFactory");
+    	
+        DataSource ds2 = (DataSource)envCtx.lookup("bean/PerUserPoolDataSourceFactory");    	
+    	// 获取连接
+    	Connection conn = ds.getConnection("root","root");
+    	System.out.println("conn" + conn); 
+        Connection conn2 = ds2.getConnection("zzf","zzf");
+        System.out.println("conn2" + conn2); 
+        
+        // ... 使用连接操作数据库，以及释放资源 ...
+    	conn.close();
+    	conn2.close();
+    %>
+</body>
+```
+
+## 测试结果
+
+打包项目在`tomcat9`上运行，访问 http://localhost:8080/DBCP-demo/testInstanceKeyDataSource.jsp ，控制台打印如下内容：
+
+```
+conn=1971654708, URL=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true, UserName=root@localhost, MySQL Connector/J
+conn2=128868782, URL=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true, UserName=zzf@localhost, MySQL Connector/J
+```
+
+
+
+# 使用`DBCP`测试两阶段提交
+
+前面源码分析已经讲到，以下类用于支持`JTA`事务。本文将介绍如何使用`DBCP`来实现`JTA`事务两阶段提交（当然，实际项目并不支持使用`2PC`，因为性能开销太大）。
+
+| 类名                     | 描述                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| `BasicManagedDataSource` | `BasicDataSource`的子类，用于创建支持`XA`事务或`JTA`事务的连接 |
+| `ManagedDataSource`      | `PoolingDataSource`的子类，用于支持`XA`事务或`JTA`事务的连接。是`BasicManagedDataSource`中实际调用的数据源，可以说`BasicManagedDataSource`只是封装了`ManagedDataSource` |
+
+## 准备工作
+
+因为测试例子使用的是`mysql`，使用`XA`事务需要开启支持。注意，`mysql`只有`innoDB`引擎才支持（另外，`XA`事务和常规事务是互斥的，如果开启了`XA`事务，其他线程进来即使只读也是不行的）。
+
+```sql
+SHOW VARIABLES LIKE '%xa%' -- 查看XA事务是否开启
+SET innodb_support_xa = ON -- 开启XA事务
+```
+
+除了原来的`github_demo`数据库，我另外建了一个`test`数据库，简单地模拟两个数据库。
+
+## `mysql`的`XA`事务使用
+
+测试之前，这里简单回顾下直接使用`sql`操作`XA`事务的过程，将有助于对以下内容的理解：
+
+```sql
+XA START 'my_test_xa'; -- 启动一个xid为my_test_xa的事务，并使之为active状态
+UPDATE github_demo.demo_user SET deleted = 1 WHERE id = '1'; -- 事务中的语句
+XA END 'my_test_xa'; -- 把事务置为idle状态
+XA PREPARE 'my_test_xa'; -- 把事务置为prepare状态
+XA COMMIT 'my_test_xa'; -- 提交事务
+XA ROLLBACK 'my_test_xa'; -- 回滚事务
+XA RECOVER; -- 查看处于prepare状态的事务列表
+```
+
+## 引入依赖
+
+在入门例子的基础上，增加以下依赖，本文采用第三方`atomikos`的实现。
+
+```xml
+        <!-- jta:用于测试DBCP对JTA事务的支持 -->
+		<dependency>
+		    <groupId>javax.transaction</groupId>
+		    <artifactId>jta</artifactId>
+		    <version>1.1</version>
+		</dependency>
+		<dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions-jdbc</artifactId>
+            <version>3.9.3</version>
+        </dependency>
+```
+
+## 获取`BasicManagedDataSource`
+
+这里千万记得要设置`DefaultCatalog`，否则当前事务中注册不同资源管理器时，可能都会被当成同一个资源管理器而拒绝注册并报错，因为这个问题，花了我好长时间才解决。
+
+```java
+	public BasicManagedDataSource getBasicManagedDataSource(
+			TransactionManager transactionManager, 
+			String url, 
+			String username, 
+			String password) {
+		BasicManagedDataSource basicManagedDataSource = new BasicManagedDataSource();
+		basicManagedDataSource.setTransactionManager(transactionManager);
+		basicManagedDataSource.setUrl(url);
+		basicManagedDataSource.setUsername(username);
+		basicManagedDataSource.setPassword(password);
+		basicManagedDataSource.setDefaultAutoCommit(false);
+		basicManagedDataSource.setXADataSource("com.mysql.cj.jdbc.MysqlXADataSource");
+		return basicManagedDataSource;
+	}
+	@Test
+	public void test01() throws Exception {
+		// 获得事务管理器
+		TransactionManager transactionManager = new UserTransactionManager();
+		
+		// 获取第一个数据库的数据源
+		BasicManagedDataSource basicManagedDataSource1 = getBasicManagedDataSource(
+				transactionManager, 
+				"jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
+				"root", 
+				"root");
+		// 注意，这一步非常重要
+		basicManagedDataSource1.setDefaultCatalog("github_demo");
+		
+		// 获取第二个数据库的数据源
+		BasicManagedDataSource basicManagedDataSource2 = getBasicManagedDataSource(
+				transactionManager, 
+				"jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
+				"zzf", 
+				"zzf");
+		// 注意，这一步非常重要
+		basicManagedDataSource1.setDefaultCatalog("test");
+    }
+```
+
+## 编写两阶段提交的代码
+
+通过运行代码可以发现，当数据库1和2的操作都成功，才会提交，只要其中一个数据库执行失败，两个操作都会回滚。
+
+```java
+	@Test
+	public void test01() throws Exception {	
+		Connection connection1 = null;
+		Statement statement1 = null;
+		Connection connection2 = null;
+		Statement statement2 = null;
+		transactionManager.begin();
+		try {
+			// 获取连接并进行数据库操作，这里会将会将XAResource注册到当前线程的XA事务对象
+			/**
+			 * XA START xid1;-- 启动一个事务，并使之为active状态
+			 */
+			connection1 = basicManagedDataSource1.getConnection();
+			statement1 = connection1.createStatement();
+			/**
+			 * update github_demo.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
+			 */
+			boolean result1 = statement1.execute("update github_demo.demo_user set deleted = 1 where id = '1'");
+			System.out.println(result1);
+			
+			/**
+			 * XA START xid2;-- 启动一个事务，并使之为active状态
+			 */
+			connection2 = basicManagedDataSource2.getConnection();
+			statement2 = connection2.createStatement();
+			/**
+			 * update test.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
+			 */
+			boolean result2 = statement2.execute("update test.demo_user set deleted = 1 where id = '1'");
+			System.out.println(result2);
+			
+			/**
+			 * 当这执行以下语句：
+			 * XA END xid1; -- 把事务置为idle状态
+			 * XA PREPARE xid1; -- 把事务置为prepare状态
+			 * XA END xid2; -- 把事务置为idle状态
+			 * XA PREPARE xid2; -- 把事务置为prepare状态	
+			 * XA COMMIT xid1; -- 提交事务
+			 * XA COMMIT xid2; -- 提交事务
+			 */
+			transactionManager.commit();
+		} catch(Exception e) {
+			e.printStackTrace();
+		} finally {
+			statement1.close();
+			statement2.close();
+			connection1.close();
+			connection2.close();
+		}
+	}
+```
+
+
+
 > 本文为原创文章，转载请附上原文出处链接：https://github.com/ZhangZiSheng001/dbcp-demo。
