@@ -256,7 +256,7 @@ maxWaitMillis=-1
 
 ## 连接检查参数
 
-针对连接失效和连接泄露的问题，建议开启`testOnBorrow`和空闲资源回收器。  
+针对连接失效和连接泄露的问题，建议开启空闲资源回收器。  
 
 ```properties
 #-------------连接检查情况--------------------------------
@@ -269,7 +269,7 @@ validationQuery=select 1 from dual
 validationQueryTimeout=-1
 
 #是否从池中取出连接前进行检验。
-#默认为true
+#默认为true。不建议开启。
 testOnBorrow=true
 
 #是否在归还到池中前进行检验 
