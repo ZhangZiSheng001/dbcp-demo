@@ -13,13 +13,14 @@
 * [配置文件详解](#配置文件详解)
   * [数据库连接参数](#数据库连接参数)
   * [连接池数据基本参数](#连接池数据基本参数)
+  * [连接存活参数](#连接存活参数)
   * [连接检查参数](#连接检查参数)
   * [缓存语句](#缓存语句)
   * [事务相关参数](#事务相关参数)
   * [连接泄漏回收参数](#连接泄漏回收参数)
   * [其他](#其他)
 * [源码分析](#源码分析)
-  * [数据源创建](#数据源创建)
+  * [创建数据源](#创建数据源)
     * [`BasicDataSource.getConnection()`](#basicdatasourcegetconnection)
     * [`BasicDataSource.createDataSource()`](#basicdatasourcecreatedatasource)
   * [获取连接对象](#获取连接对象)
@@ -247,15 +248,28 @@ maxIdle=8
 #注意：需要开启空闲对象回收器，这个参数才能生效。
 #默认为0
 minIdle=0
-
+```
+## 连接存活参数
+```properties
 #最大等待时间
 #当没有可用连接时,连接池等待连接被归还的最大时间(以毫秒计数),超过时间则抛出异常,如果设置为<=0表示无限等待
 #默认-1
 maxWaitMillis=-1
+
+#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。
+#默认值1000*60*30 = 30分钟
+minEvictableIdleTimeMillis=1800000
+
+#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。但是会保证minIdle
+#默认值-1
+#softMinEvictableIdleTimeMillis=-1
+
+#连接最大存活时间。非正数表示不限制
+#默认-1
+maxConnLifetimeMillis=-1
 ```
 
 ## 连接检查参数
-
 针对连接失效和连接泄露的问题，建议开启空闲资源回收器。  
 
 ```properties
@@ -288,27 +302,10 @@ timeBetweenEvictionRunsMillis=-1
 #默认3，单位毫秒。如果设置为-1，就是对所有连接做空闲监测。
 numTestsPerEvictionRun=3
 
-#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。
-#默认值1000*60*30 = 30分钟
-minEvictableIdleTimeMillis=1800000
-
-#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。但是会保证minIdle
-#默认值-1
-#softMinEvictableIdleTimeMillis=-1
-
 #空闲对象回收器的回收策略
 #默认org.apache.commons.pool2.impl.DefaultEvictionPolicy
 #如果要自定义的话，需要实现EvictionPolicy重写evict方法
 evictionPolicyClassName=org.apache.commons.pool2.impl.DefaultEvictionPolicy
-
-#连接最大存活时间。非正数表示不限制
-#默认-1
-maxConnLifetimeMillis=-1
-
-#当达到maxConnLifetimeMillis被关闭时，是否打印相关消息
-#默认true
-#注意：maxConnLifetimeMillis设置为正数时，这个参数才有效
-logExpiredConnections=true
 ```
 
 ## 缓存语句
@@ -401,7 +398,11 @@ abandonedUsageTracking=false
 这部分参数比较少用。
 
 ```properties
-#-------------其他--------------------------------
+#当达到maxConnLifetimeMillis被关闭时，是否打印相关消息
+#默认true
+#注意：maxConnLifetimeMillis设置为正数时，这个参数才有效
+logExpiredConnections=true
+
 #是否使用快速失败机制
 #默认为空，由驱动决定
 fastFailValidation=false
@@ -447,7 +448,7 @@ accessToUnderlyingConnectionAllowed=false
 
 注意：考虑篇幅和可读性，以下代码经过删减，仅保留所需部分。  
 
-## 数据源创建
+## 创建数据源
 研究数据源创建之前，先来看下`DBCP`的几种数据源：  
 
 类名|描述
