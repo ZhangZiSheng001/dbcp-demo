@@ -245,17 +245,17 @@ maxTotal=8
 maxIdle=8
 
 #最小空闲连接:连接池中容许保持空闲状态的最小连接数量,低于这个数量将创建新的连接,如果设置为0则不创建
-#注意：需要开启空闲对象回收器，这个参数才能生效。
+#注意：timeBetweenEvictionRunsMillis为正数时，这个参数才能生效。
 #默认为0
 minIdle=0
-```
-## 连接存活参数
-```properties
+
 #最大等待时间
 #当没有可用连接时,连接池等待连接被归还的最大时间(以毫秒计数),超过时间则抛出异常,如果设置为<=0表示无限等待
 #默认-1
 maxWaitMillis=-1
-
+```
+## 连接存活参数
+```properties
 #资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。
 #默认值1000*60*30 = 30分钟
 minEvictableIdleTimeMillis=1800000
@@ -270,7 +270,7 @@ maxConnLifetimeMillis=-1
 ```
 
 ## 连接检查参数
-针对连接失效和连接泄露的问题，建议开启空闲资源回收器。  
+针对连接失效和连接泄露的问题，建议开启`testWhileIdle`，而不是开启`testOnReturn`或`testOnBorrow`，从（从性能考虑）。  
 
 ```properties
 #-------------连接检查情况--------------------------------
@@ -310,11 +310,12 @@ evictionPolicyClassName=org.apache.commons.pool2.impl.DefaultEvictionPolicy
 
 ## 缓存语句
 
-缓存语句建议开启。
+缓存语句在`mysql`下建议关闭。
 
 ```properties
 #-------------缓存语句--------------------------------
-#是否缓存PreparedStatements，这个功能在一些支持游标的数据库中可以极大提高性能（Oracle、SQL Server、DB2、Sybase）
+#是否缓存PreparedStatements
+#PSCache对支持游标的数据库性能提升巨大，比如说oracle。在mysql下建议关闭
 #默认为false
 poolPreparedStatements=false
 
