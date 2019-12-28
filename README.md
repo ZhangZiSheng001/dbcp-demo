@@ -1,58 +1,8 @@
-# 目录
-
-* [简介](#简介)
-* [使用例子](#使用例子)
-  * [需求](#需求)
-  * [工程环境](#工程环境)
-  * [主要步骤](#主要步骤)
-  * [创建项目](#创建项目)
-  * [引入依赖](#引入依赖)
-  * [编写`jdbc.prperties`](#编写jdbcprperties)
-  * [获取连接池和获取连接](#获取连接池和获取连接)
-  * [编写测试类](#编写测试类)
-* [配置文件详解](#配置文件详解)
-  * [数据库连接参数](#数据库连接参数)
-  * [连接池基本参数](#连接池基本参数)
-  * [连接存活参数](#连接存活参数)
-  * [连接检查参数](#连接检查参数)
-  * [缓存语句](#缓存语句)
-  * [事务相关参数](#事务相关参数)
-  * [连接泄漏回收参数](#连接泄漏回收参数)
-  * [其他](#其他)
-* [源码分析](#源码分析)
-  * [创建数据源](#创建数据源)
-    * [`BasicDataSource.getConnection()`](#basicdatasourcegetconnection)
-    * [`BasicDataSource.createDataSource()`](#basicdatasourcecreatedatasource)
-  * [获取连接对象](#获取连接对象)
-    * [`PoolingDataSource.getConnection()`](#poolingdatasourcegetconnection)
-    * [`GenericObjectPool.borrowObject()`](#genericobjectpoolborrowobject)
-    * [`GenericObjectPool.create()`](#genericobjectpoolcreate)
-    * [`PoolableConnectionFactory.makeObject()`](#poolableconnectionfactorymakeobject)
-  * [空闲对象回收器`Evictor`](#空闲对象回收器evictor)
-    * [`BasicDataSource.startPoolMaintenance()`](#basicdatasourcestartpoolmaintenance)
-    * [`BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)`](#basegenericobjectpoolsettimebetweenevictionrunsmillislong)
-    * [`BaseGenericObjectPool.startEvictor(long)`](#basegenericobjectpoolstartevictorlong)
-    * [`EvictionTimer.schedule(Evictor, long, long)`](#evictiontimerscheduleevictor-long-long)
-    * [`BaseGenericObjectPool.Evictor`](#basegenericobjectpoolevictor)
-    * [`GenericObjectPool.evict()`](#genericobjectpoolevict)
-* [通过`JNDI`获取数据源对象](#通过jndi获取数据源对象)
-  * [需求](#需求-1)
-  * [引入依赖](#引入依赖-1)
-  * [编写`context.xml`](#编写contextxml)
-  * [编写`web.xml`](#编写webxml)
-  * [编写`jsp`](#编写jsp)
-  * [测试结果](#测试结果)
-* [使用`DBCP`测试两阶段提交](#使用dbcp测试两阶段提交)
-  * [准备工作](#准备工作)
-  * [`mysql`的`XA`事务使用](#mysql的xa事务使用)
-  * [引入依赖](#引入依赖-2)
-  * [获取`BasicManagedDataSource`](#获取basicmanageddatasource)
-  * [编写两阶段提交的代码](#编写两阶段提交的代码)
 
 
 # 简介 
 
-`DBCP`用于创建和管理连接，利用“池”的方式复用连接减少资源开销，和其他连接池一样，也具有连接数控制、连接可靠性测试、连接泄露控制、缓存语句等功能。目前，`tomcat`自带的连接池就是`DBCP`，Spring开发组也推荐使用`DBCP`。
+`DBCP`用于创建和管理连接，利用“池”的方式复用连接减少资源开销，和其他连接池一样，也具有连接数控制、连接有效性检测、连接泄露控制、缓存语句等功能。目前，`tomcat`自带的连接池就是`DBCP`，Spring开发组也推荐使用`DBCP`，阿里的`druid`也是参照`DBCP`开发出来的。
 
 `DBCP`除了我们熟知的使用方式外，还支持通过`JNDI`获取数据源，并支持获取`JTA`或`XA`事务中用于`2PC`（两阶段提交）的连接对象，本文也将以例子说明。
 
@@ -64,40 +14,43 @@
 4. `DBCP`其他特性的使用方法，如`JNDI`和`JTA`支持。
 
 
-
 # 使用例子
 
 ## 需求
+
 使用`DBCP`连接池获取连接对象，对用户数据进行简单的增删改查。
 
 ## 工程环境
-`JDK`：1.8.0_201  
 
-`maven`：3.6.1  
+`JDK`：1.8.0_201
 
-`IDE`：eclipse 4.12  
+`maven`：3.6.1
 
-`mysql-connector-java`：8.0.15  
+`IDE`：eclipse 4.12
 
-`mysql`：5.7  
+`mysql-connector-java`：8.0.15
 
-`DBCP`：2.6.0  
+`mysql`：5.7.28
+
+`DBCP`：2.6.0
 
 
 ## 主要步骤
 
-1. 编写`jdbc.properties`，设置数据库连接参数和连接池基本参数等。  
+1. 编写`dbcp.properties`，设置数据库连接参数和连接池基本参数等。
 
-2. 通过`BasicDataSourceFactory`加载`jdbc.properties`，并获得`BasicDataDource`对象。  
+2. 通过`BasicDataSourceFactory`加载`dbcp.properties`，并获得`BasicDataDource`对象。
 
-3. 通过`BasicDataDource`对象获取`Connection`对象。  
+3. 通过`BasicDataDource`对象获取`Connection`对象。
 
-4. 使用`Connection`对象对用户表进行增删改查。  
+4. 使用`Connection`对象对用户表进行增删改查。
 
 ## 创建项目
-项目类型Maven Project，打包方式war（其实jar也可以，之所以使用war是为了测试`JNDI`）。  
+
+项目类型Maven Project，打包方式war（其实jar也可以，之所以使用war是为了测试`JNDI`）。
 
 ## 引入依赖
+
 ```xml
 <!-- junit -->
 <dependency>
@@ -126,112 +79,18 @@
 </dependency>
 ```
 
-## 编写`jdbc.prperties`
-路径`resources`目录下，因为是入门例子，这里仅给出数据库连接参数和连接池基本参数，后面源码会对配置参数进行详细说明。另外，数据库`sql`脚本也在该目录下。  
+## 编写`dbcp.prperties`
+
+路径`resources`目录下，因为是入门例子，这里仅给出数据库连接参数和连接池基本参数，后面源码会对配置参数进行详细说明。另外，数据库`sql`脚本也在该目录下。
 
 ```properties
-#数据库基本配置
+#连接基本属性
 driverClassName=com.mysql.cj.jdbc.Driver
 url=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true
 username=root
 password=root
 
-#-------------连接数据相关参数--------------------------------
-#初始化连接:连接池启动时创建的初始化连接数量
-#默认为0
-initialSize=0
-#最大活动连接
-#连接池在同一时间能够分配的最大活动连接的数量, 如果设置为非正数则表示不限制
-#默认为8
-maxActive=8
-#最大空闲连接
-#连接池中容许保持空闲状态的最大连接数量,超过的空闲连接将被释放,如果设置为负数表示不限制
-#默认为8
-maxIdle=8
-#最小空闲连接
-#连接池中容许保持空闲状态的最小连接数量,低于这个数量将创建新的连接,如果设置为0则不创建
-#默认为0
-minIdle=0
-#最大等待时间
-#当没有可用连接时,连接池等待连接被归还的最大时间(以毫秒计数),超过时间则抛出异常,如果设置为-1表示无限等待
-#默认无限
-maxWait=-1
-```
-
-## 获取连接池和获取连接  
-项目中编写了`JDBCUtil`来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。  
-
-路径：`cn.zzs.dbcp`
-```java
-	// 导入配置文件
-	Properties properties = new Properties();
-	InputStream in = JDBCUtil.class.getClassLoader().getResourceAsStream("jdbc.properties");
-	properties.load(in);
-	// 根据配置文件内容获得数据源对象
-	DataSource dataSource = BasicDataSourceFactory.createDataSource(properties);
-	// 获得连接
-	Connection conn = dataSource.getConnection();
-```
-
-## 编写测试类
-这里以保存用户为例，路径test目录下的`cn.zzs.dbcp`。
-
-```java
-	@Test
-	public void save() {
-		// 创建sql
-		String sql = "insert into demo_user values(null,?,?,?,?,?)";
-		Connection connection = null;
-		PreparedStatement statement = null;
-		try {
-			// 获得连接
-			connection = JDBCUtil.getConnection();
-			// 开启事务设置非自动提交
-			JDBCUtil.startTrasaction();
-			// 获得Statement对象
-			statement = connection.prepareStatement(sql);
-			// 设置参数
-			statement.setString(1, "zzf003");
-			statement.setInt(2, 18);
-			statement.setDate(3, new Date(System.currentTimeMillis()));
-			statement.setDate(4, new Date(System.currentTimeMillis()));
-			statement.setBoolean(5, false);
-			// 执行
-			statement.executeUpdate();
-			// 提交事务
-			JDBCUtil.commit();
-		} catch(Exception e) {
-			JDBCUtil.rollback();
-			log.error("保存用户失败", e);
-		} finally {
-			// 释放资源
-			JDBCUtil.release(connection, statement, null);
-		}
-	}
-```
-
-
-
-# 配置文件详解
-
-这部分内容从网上参照过来，同样的内容发的到处都是，暂时没找到出处。因为内容太过杂乱，而且最新版本更新了不少内容，所以我花了好大功夫才改好，后面找到出处再补上参考资料吧。  
-
-## 数据库连接参数
-注意，这里在`url`后面拼接了多个参数用于避免乱码、时区报错问题。  补充下，如果不想加入时区的参数，可以在`mysql`命令窗口执行如下命令：`set global time_zone='+8:00'`。
-
-
-```properties
-driverClassName=com.mysql.cj.jdbc.Driver
-url=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true
-username=root
-password=root
-```
-
-## 连接池基本参数
-这几个参数都比较常用，具体设置多少需根据项目调整。  
-
-```properties
-#-------------连接数据相关参数--------------------------------
+#-------------连接池大小和连接超时参数--------------------------------
 #初始化连接数量:连接池启动时创建的初始化连接数量
 #默认为0
 initialSize=0
@@ -254,58 +113,112 @@ minIdle=0
 #默认-1
 maxWaitMillis=-1
 ```
-## 连接存活参数
-```properties
-#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。
-#默认值1000*60*30 = 30分钟
-minEvictableIdleTimeMillis=1800000
 
-#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。但是会保证minIdle
-#默认值-1
-#softMinEvictableIdleTimeMillis=-1
+## 获取连接池和获取连接
 
-#连接最大存活时间。非正数表示不限制
-#默认-1
-maxConnLifetimeMillis=-1
+项目中编写了`JDBCUtils`来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。
+
+路径：`cn.zzs.dbcp`
+```java
+	// 导入配置文件
+	Properties properties = new Properties();
+	InputStream in = JDBCUtil.class.getClassLoader().getResourceAsStream("dbcp.properties");
+	properties.load(in);
+	// 根据配置文件内容获得数据源对象
+	DataSource dataSource = BasicDataSourceFactory.createDataSource(properties);
+	// 获得连接
+	Connection conn = dataSource.getConnection();
 ```
 
-## 连接检查参数
-针对连接失效和连接泄露的问题，建议开启`testWhileIdle`，而不是开启`testOnReturn`或`testOnBorrow`，从（从性能考虑）。  
+## 编写测试类
+
+这里以保存用户为例，路径test目录下的`cn.zzs.dbcp`。
+
+```java
+	@Test
+	public void save() {
+		// 创建sql
+		String sql = "insert into demo_user values(null,?,?,?,?,?)";
+		Connection connection = null;
+		PreparedStatement statement = null;
+		try {
+			// 获得连接
+			connection = JDBCUtils.getConnection();
+			// 开启事务设置非自动提交
+			JDBCUtils.startTrasaction();
+			// 获得Statement对象
+			statement = connection.prepareStatement(sql);
+			// 设置参数
+			statement.setString(1, "zzf003");
+			statement.setInt(2, 18);
+			statement.setDate(3, new Date(System.currentTimeMillis()));
+			statement.setDate(4, new Date(System.currentTimeMillis()));
+			statement.setBoolean(5, false);
+			// 执行
+			statement.executeUpdate();
+			// 提交事务
+			JDBCUtils.commit();
+		} catch(Exception e) {
+			JDBCUtils.rollback();
+			log.error("保存用户失败", e);
+		} finally {
+			// 释放资源
+			JDBCUtils.release(connection, statement, null);
+		}
+	}
+```
+
+
+
+# 配置文件详解
+
+这部分内容从网上参照过来，同样的内容发的到处都是，暂时没找到出处。因为内容太过杂乱，而且最新版本更新了不少内容，所以我花了好大功夫才改好，后面找到出处再补上参考资料吧。
+
+## 基本连接属性
+
+注意，这里在`url`后面拼接了多个参数用于避免乱码、时区报错问题。  补充下，如果不想加入时区的参数，可以在`mysql`命令窗口执行如下命令：`set global time_zone='+8:00'`。
+
 
 ```properties
-#-------------连接检查情况--------------------------------
-#通过SQL查询检测连接,注意必须返回至少一行记录
-#默认为空。即会调用Connection的isValid和isClosed进行检测
-#注意：如果是oracle数据库的话，应该改为select 1 from dual
-validationQuery=select 1 from dual
+driverClassName=com.mysql.cj.jdbc.Driver
+url=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true
+username=root
+password=root
+```
 
-#SQL检验超时时间
-validationQueryTimeout=-1
+## 连接池大小参数
 
-#是否从池中取出连接前进行检验。
-#默认为true。不建议开启。
-testOnBorrow=true
+这几个参数都比较常用，具体设置多少需根据项目调整。
 
-#是否在归还到池中前进行检验 
-#默认为false
-testOnReturn=false
+```properties
+#-------------连接池大小和连接超时参数--------------------------------
+#初始化连接数量:连接池启动时创建的初始化连接数量
+#默认为0
+initialSize=0
 
-#是否开启空闲对象回收器。
-#默认为false
-testWhileIdle=false
+#最大活动连接数量:连接池在同一时间能够分配的最大活动连接的数量, 如果设置为负数则表示不限制
+#默认为8
+maxTotal=8
 
-#空闲对象回收器的检测周期(单位为毫秒)。
-#默认-1。即空闲对象回收器不工作。
-timeBetweenEvictionRunsMillis=-1
+#最大空闲连接:连接池中容许保持空闲状态的最大连接数量,超过的空闲连接将被释放,如果设置为负数表示不限制
+#默认为8
+maxIdle=8
 
-#做空闲对象回收器时，每次的采样数。
-#默认3，单位毫秒。如果设置为-1，就是对所有连接做空闲监测。
-numTestsPerEvictionRun=3
+#最小空闲连接:连接池中容许保持空闲状态的最小连接数量,低于这个数量将创建新的连接,如果设置为0则不创建
+#注意：timeBetweenEvictionRunsMillis为正数时，这个参数才能生效。
+#默认为0
+minIdle=0
 
-#空闲对象回收器的回收策略
-#默认org.apache.commons.pool2.impl.DefaultEvictionPolicy
-#如果要自定义的话，需要实现EvictionPolicy重写evict方法
-evictionPolicyClassName=org.apache.commons.pool2.impl.DefaultEvictionPolicy
+#最大等待时间
+#当没有可用连接时,连接池等待连接被归还的最大时间(以毫秒计数),超过时间则抛出异常,如果设置为<=0表示无限等待
+#默认-1
+maxWaitMillis=-1
+
+#连接池创建的连接的默认的数据库名，如果是使用DBCP的XA连接必须设置，不然注册不了多个资源管理器
+#defaultCatalog=github_demo
+
+#连接池创建的连接的默认的schema。如果是mysql，这个设置没什么用。
+#defaultSchema=github_demo
 ```
 
 ## 缓存语句
@@ -314,7 +227,7 @@ evictionPolicyClassName=org.apache.commons.pool2.impl.DefaultEvictionPolicy
 
 ```properties
 #-------------缓存语句--------------------------------
-#是否缓存PreparedStatements
+#是否缓存preparedStatement，也就是PSCache。
 #PSCache对支持游标的数据库性能提升巨大，比如说oracle。在mysql下建议关闭
 #默认为false
 poolPreparedStatements=false
@@ -329,6 +242,64 @@ maxOpenPreparedStatements=-1
 cacheState=true
 
 ```
+
+## 连接检查参数
+
+针对连接失效和连接泄露的问题，建议开启`testWhileIdle`，而不是开启`testOnReturn`或`testOnBorrow`（从性能考虑）。
+
+```properties
+#-------------连接检查情况--------------------------------
+#通过SQL查询检测连接,注意必须返回至少一行记录
+#默认为空。即会调用Connection的isValid和isClosed进行检测
+#注意：如果是oracle数据库的话，应该改为select 1 from dual
+validationQuery=select 1 from dual
+
+#SQL检验超时时间
+validationQueryTimeout=-1
+
+#是否从池中取出连接前进行检验。
+#默认为true
+testOnBorrow=true
+
+#是否在归还到池中前进行检验 
+#默认为false
+testOnReturn=false
+
+#是否开启空闲资源回收器。
+#默认为false
+testWhileIdle=false
+
+#空闲资源的检测周期(单位为毫秒)。
+#默认-1。即空闲资源回收器不工作。
+timeBetweenEvictionRunsMillis=-1
+
+#做空闲资源回收器时，每次的采样数。
+#默认3，单位毫秒。如果设置为-1，就是对所有连接做空闲监测。
+numTestsPerEvictionRun=3
+
+#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。
+#默认值1000*60*30 = 30分钟
+minEvictableIdleTimeMillis=1800000
+
+#资源池中资源最小空闲时间(单位为毫秒)，达到此值后将被移除。但是会保证minIdle
+#默认值-1
+#softMinEvictableIdleTimeMillis=-1
+
+#空闲资源回收策略
+#默认org.apache.commons.pool2.impl.DefaultEvictionPolicy
+#如果要自定义的话，需要实现EvictionPolicy重写evict方法
+evictionPolicyClassName=org.apache.commons.pool2.impl.DefaultEvictionPolicy
+
+#连接最大存活时间。非正数表示不限制
+#默认-1
+maxConnLifetimeMillis=-1
+
+#当达到maxConnLifetimeMillis被关闭时，是否打印相关消息
+#默认true
+#注意：maxConnLifetimeMillis设置为正数时，这个参数才有效
+logExpiredConnections=true
+```
+
 
 ## 事务相关参数
 
@@ -357,11 +328,6 @@ autoCommitOnReturn=true
 #默认true
 rollbackOnReturn=true
 
-#连接池创建的连接的默认的数据库名，如果是使用DBCP的XA连接必须设置，不然注册不了多个资源管理器
-#defaultCatalog=github_demo
-
-#连接池创建的连接的默认的schema。如果是mysql，这个设置没什么用。
-#defaultSchema=github_demo
 ```
 
 ## 连接泄漏回收参数
@@ -375,9 +341,9 @@ rollbackOnReturn=true
 #注意：这个机制在(getNumIdle() < 2) and (getNumActive() > (getMaxActive() - 3))时被触发
 removeAbandonedOnBorrow=false
 
-#当未使用的时间超过removeAbandonedTimeout时，是否视该连接为泄露连接并删除
+#当未使用的时间超过removeAbandonedTimeout时，是否视该连接为泄露连接并删除（空闲evictor检测）
 #默认为false
-#注意：当空闲对象回收器开启才生效
+#注意：当空闲资源回收器开启才生效
 removeAbandonedOnMaintenance=false
 
 #泄露的连接可以被删除的超时值, 单位秒
@@ -399,11 +365,7 @@ abandonedUsageTracking=false
 这部分参数比较少用。
 
 ```properties
-#当达到maxConnLifetimeMillis被关闭时，是否打印相关消息
-#默认true
-#注意：maxConnLifetimeMillis设置为正数时，这个参数才有效
-logExpiredConnections=true
-
+#-------------其他--------------------------------
 #是否使用快速失败机制
 #默认为空，由驱动决定
 fastFailValidation=false
@@ -442,15 +404,17 @@ accessToUnderlyingConnectionAllowed=false
 ```
 
 
-
 # 源码分析
 
-通过使用例子可知，`DBCP`的`BasicDataSource`是我们获取连接对象的入口，至于`BasicDataSourceFactory`只是创建和初始化`BasicDataSource`实例，它的代码就不看了。这里直接从`BasicDataSource`的`getConnection()`方法开始分析。  
+注意：考虑篇幅和可读性，以下代码经过删减，仅保留所需部分。
 
-注意：考虑篇幅和可读性，以下代码经过删减，仅保留所需部分。  
+## 创建数据源和连接池
 
-## 创建数据源
-研究数据源创建之前，先来看下`DBCP`的几种数据源：  
+研究之前，先来看下`BasicDataSource`的`UML`图：
+
+![BasicDataSource的UML图](https://github.com/ZhangZiSheng001/dbcp-demo/tree/master/img/BasicDataSource.png)
+
+这里介绍下这几个类的作用：
 
 类名|描述
 -|-
@@ -458,15 +422,20 @@ accessToUnderlyingConnectionAllowed=false
 `BasicManagedDataSource`|`BasicDataSource`的子类，用于创建支持`XA`事务或`JTA`事务的连接
 `PoolingDataSource`|`BasicDataSource`中实际调用的数据源，可以说`BasicDataSource`只是封装了`PoolingDataSource`
 `ManagedDataSource`|`PoolingDataSource`的子类，用于支持`XA`事务或`JTA`事务的连接。是`BasicManagedDataSource`中实际调用的数据源，可以说`BasicManagedDataSource`只是封装了`ManagedDataSource`
-`InstanceKeyDataSource`|用于支持`JDNI`环境的数据源
-`PerUserPoolDataSource`|`InstanceKeyDataSource`的子类，针对每个用户会单独分配一个连接池，每个连接池可以设置不同属性。例如以下需求，相比user，`admin`可以创建更多地连接以保证
-`SharedPoolDataSource`|`InstanceKeyDataSource`的子类，不同用户共享一个连接池
 
-本文的源码分析仅会涉及到`BasicDataSource`（包含它封装的`PoolingDataSource`），其他的数据源暂时不扩展。  
+另外，为了支持`JNDI`，`DBCP`也提供了相应的类。
 
-### `BasicDataSource.getConnection()`
+| 类名                    | 描述                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `InstanceKeyDataSource` | 用于支持`JDNI`环境的数据源                                   |
+| `PerUserPoolDataSource` | `InstanceKeyDataSource`的子类，针对每个用户会单独分配一个连接池，每个连接池可以设置不同属性。例如以下需求，相比user，`admin`可以创建更多地连接以保证 |
+| `SharedPoolDataSource`  | `InstanceKeyDataSource`的子类，不同用户共享一个连接池        |
 
-`BasicDataSource`是在第一次被调用获取获取连接时才创建`PoolingDataSource`对象。
+本文的源码分析仅会涉及到`BasicDataSource`（包含它封装的`PoolingDataSource`），其他的数据源暂时不扩展。
+
+### BasicDataSource.getConnection()
+
+`BasicDataSourceFactory`只是简单地`new`了一个`BasicDataSource`对象并初始化配置参数，此时真正的数据源（`PoolingDataSource`）以及连接池（`GenericObjectPool<PoolableConnection>`）并没有创建，而创建的时机为我们第一次调用`getConnection()`的时候。因此，本文直接从`BasicDataSource`的`getConnection()`方法开始分析。
 
 ```java
     public Connection getConnection() throws SQLException {
@@ -474,104 +443,79 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-### `BasicDataSource.createDataSource()`
-接下来的方法又会涉及到四个类，如下：  
+### BasicDataSource.createDataSource()
+
+这个方法会创建数据源和连接池，整个过程可以概括为以下几步：
+
+1. 注册`MBean`，用于支持`JMX`；
+2. 创建连接池对象`GenericObjectPool<PoolableConnection>`；
+3. 创建数据源对象`PoolingDataSource<PoolableConnection>`；
+4. 初始化连接数；
+5. 开启空闲资源回收线程（如果设置`timeBetweenEvictionRunsMillis`为正数）。
+
+```java
+	protected DataSource createDataSource() throws SQLException {
+		if(closed) {
+			throw new SQLException("Data source is closed");
+		}
+		if(dataSource != null) {
+			return dataSource;
+		}
+
+		synchronized(this) {
+			if(dataSource != null) {
+				return dataSource;
+			}
+			// 注册MBean，用于支持JMX，这方面的内容不在这里扩展
+			jmxRegister();
+
+			// 创建原生Connection工厂：本质就是持有数据库驱动对象和几个连接参数
+			final ConnectionFactory driverConnectionFactory = createConnectionFactory();
+
+			// 将driverConnectionFactory包装成池化Connection工厂
+			PoolableConnectionFactory poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
+			// 设置PreparedStatements缓存（其实在这里可以发现，上面创建池化工厂时就设置了缓存，这里没必要再设置一遍）
+			poolableConnectionFactory.setPoolStatements(poolPreparedStatements);
+			poolableConnectionFactory.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
+
+			// 创建数据库连接池对象GenericObjectPool，用于管理连接
+			// BasicDataSource将持有GenericObjectPool对象
+			createConnectionPool(poolableConnectionFactory);
+
+			// 创建PoolingDataSource对象
+			// 该对象持有GenericObjectPool对象的引用
+			DataSource newDataSource = createDataSourceInstance();
+			newDataSource.setLogWriter(logWriter);
+
+			// 根据我们设置的initialSize创建初始连接
+			for(int i = 0; i < initialSize; i++) {
+				connectionPool.addObject();
+			}
+
+			// 开启连接池的evictor线程
+			startPoolMaintenance();
+			// 最后BasicDataSource将持有上面创建的PoolingDataSource对象
+			dataSource = newDataSource;
+			return dataSource;
+		}
+	}
+```
+以上方法涉及到几个类，这里再补充下`UML`图。
+
+![GenericObjectPool的UML图](https://github.com/ZhangZiSheng001/dbcp-demo/tree/master/img/GenericObjectPool.png)
+
 
 | 类名                        | 描述                                                         |
 | --------------------------- | ------------------------------------------------------------ |
-| `ConnectionFactory`         | 用于生成原生的Connection对象                                 |
-| `PoolableConnectionFactory` | 用于生成包装过的Connection对象，持有`ConnectionFactory`对象的引用 |
+| `DriverConnectionFactory`   | 用于生成原生的Connection对象                                 |
+| `PoolableConnectionFactory` | 用于生成池化的Connection对象，持有`ConnectionFactory`对象的引用 |
 | `GenericObjectPool`         | 数据库连接池，用于管理连接。持有`PoolableConnectionFactory`对象的引用 |
-| `PoolingDataSource`         | 数据源，持有`GenericObjectPool`的引用。我们调用`BasicDataSource`获取连接对象，实际上调用的是它的`getConnection()`方法 |
-
-```java
-    // 数据源
-    private volatile DataSource dataSource;
-    // 连接池
-    private volatile GenericObjectPool<PoolableConnection> connectionPool;
-
-    protected DataSource createDataSource() throws SQLException {
-        if (closed) {
-            throw new SQLException("Data source is closed");
-        }
-        if (dataSource != null) {
-            return dataSource;
-        }
-
-        synchronized (this) {
-            if (dataSource != null) {
-                return dataSource;
-            }
-            // 注册MBean，用于支持JMX，这方面的内容不在这里扩展
-            jmxRegister();
-
-            // 创建原生Connection工厂：本质就是持有数据库驱动对象和几个连接参数
-            final ConnectionFactory driverConnectionFactory = createConnectionFactory();
-
-            // 将driverConnectionFactory包装成池化Connection工厂
-            boolean success = false;
-            PoolableConnectionFactory poolableConnectionFactory;
-            try {
-                poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
-                // 设置PreparedStatements缓存（其实在这里可以发现，上面创建池化工厂时就设置了缓存，这里没必要再设置一遍）
-                poolableConnectionFactory.setPoolStatements(poolPreparedStatements);
-                poolableConnectionFactory.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
-                success = true;
-            } catch (final SQLException se) {
-                throw se;
-            } catch (final RuntimeException rte) {
-                throw rte;
-            } catch (final Exception ex) {
-                throw new SQLException("Error creating connection factory", ex);
-            }
-
-            if (success) {
-                // 创建数据库连接池对象GenericObjectPool，用于管理连接
-                // BasicDataSource将持有GenericObjectPool对象
-                createConnectionPool(poolableConnectionFactory);
-            }
-            
-            // 创建PoolingDataSource对象
-            //该对象持有GenericObjectPool对象的引用
-            DataSource newDataSource;
-            success = false;
-            try {
-                newDataSource = createDataSourceInstance();
-                newDataSource.setLogWriter(logWriter);
-                success = true;
-            } catch (final SQLException se) {
-                throw se;
-            } catch (final RuntimeException rte) {
-                throw rte;
-            } catch (final Exception ex) {
-                throw new SQLException("Error creating datasource", ex);
-            } finally {
-                if (!success) {
-                    closeConnectionPool();
-                }
-            }
-
-            // 根据我们设置的initialSize创建初始连接
-            try {
-                for (int i = 0; i < initialSize; i++) {
-                    connectionPool.addObject();
-                }
-            } catch (final Exception e) {
-                closeConnectionPool();
-                throw new SQLException("Error preloading the connection pool", e);
-            }
-
-            // 开启连接池的evictor线程
-            startPoolMaintenance();
-            // 最后BasicDataSource将持有上面创建的PoolingDataSource对象
-            dataSource = newDataSource;
-            return dataSource;
-        }
-    }
-```
 
 ## 获取连接对象
-上面已经大致分析了数据源对象的获取过程，接下来研究下连接对象的获取。在此之前先了解下`DBCP`中几个`Connection`实现类。  
+
+上面已经大致分析了数据源和连接池对象的获取过程，接下来研究下连接对象的获取。在此之前先了解下`DBCP`中几个`Connection`实现类。
+
+![DelegatingConnection的UML图](https://github.com/ZhangZiSheng001/dbcp-demo/tree/master/img/DelegatingConnection.png)
 
 类名|描述
 -|-
@@ -582,9 +526,15 @@ accessToUnderlyingConnectionAllowed=false
 `ManagedConnection`|用于包装原生的`Connection`，支持`JTA`和`XA`事务
 `PoolGuardConnectionWrapper`|用于包装`PoolableConnection`，当`accessToUnderlyingConnectionAllowed`才能获取底层连接对象。我们获取到的就是这个对象
 
+另外，这里先概括下获得连接的整个过程：
 
+1. 如果设置了`removeAbandonedOnBorrow`，达到条件会进行检测；
+2. 从连接池中获取连接，如果没有就通过工厂创建(通过`DriverConnectionFactory`创建原生对象，再通过`PoolableConnectionFactory`包装为池化对象)；
+3. 通过工厂重新初始化连接对象；
+4. 如果设置了`testOnBorrow`或者`testOnCreate`，会通过工厂校验连接有效性；
+5. 使用`PoolGuardConnectionWrapper`包装连接对象，并返回给客户端
 
-### `PoolingDataSource.getConnection()`
+### PoolingDataSource.getConnection()
 
 前面已经说过，`BasicDataSource`本质上是调用`PoolingDataSource`的方法来获取连接，所以这里从`PoolingDataSource.getConnection()`开始研究。
 
@@ -603,7 +553,7 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-### `GenericObjectPool.borrowObject()`
+### GenericObjectPool.borrowObject()
 
 `GenericObjectPool`是一个很简练的类，里面涉及到的属性设置和锁机制都涉及得非常巧妙。
 
@@ -738,7 +688,7 @@ accessToUnderlyingConnectionAllowed=false
         return p.getObject();
     }
 ```
-### `GenericObjectPool.create()`
+### GenericObjectPool.create()
 
 这里在创建连接对象时采用的锁机制非常值得学习，简练且高效。
 
@@ -822,7 +772,7 @@ accessToUnderlyingConnectionAllowed=false
 
 ```
 
-### `PoolableConnectionFactory.makeObject()`
+### PoolableConnectionFactory.makeObject()
 ```java
     public PooledObject<PoolableConnection> makeObject() throws Exception {
         // 创建原生的Connection对象
@@ -890,10 +840,11 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-## 空闲对象回收器`Evictor`
-以上基本已分析完连接对象的获取过程，下面再研究下空闲对象回收器。前面已经讲到当创建完数据源对象时会开启连接池的`evictor`线程，所以我们从`BasicDataSource.startPoolMaintenance()`开始分析。  
+## 空闲对象回收器Evictor
 
-### `BasicDataSource.startPoolMaintenance()`
+以上基本已分析完连接对象的获取过程，下面再研究下空闲对象回收器。前面已经讲到当创建完数据源对象时会开启连接池的`evictor`线程，所以我们从`BasicDataSource.startPoolMaintenance()`开始分析。
+
+### BasicDataSource.startPoolMaintenance()
 
 前面说过`timeBetweenEvictionRunsMillis`为非正数时不会开启开启空闲对象回收器，从以下代码可以理解具体逻辑。
 
@@ -905,8 +856,9 @@ accessToUnderlyingConnectionAllowed=false
         }
     }
 ```
-### `BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)`
-这个`BaseGenericObjectPool`是上面说到的`GenericObjectPool`的父类。  
+### BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)
+
+这个`BaseGenericObjectPool`是上面说到的`GenericObjectPool`的父类。
 
 ```java
     public final void setTimeBetweenEvictionRunsMillis(
@@ -918,9 +870,9 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-### `BaseGenericObjectPool.startEvictor(long)`
+### BaseGenericObjectPool.startEvictor(long)
 
-这里会去定义一个`Evictor`对象，这个其实是一个Runnable对象，后面会讲到。
+这里会去定义一个`Evictor`对象，这个其实是一个`Runnable`对象，后面会讲到。
 
 ```java
     final void startEvictor(final long delay) {
@@ -939,7 +891,8 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-### `EvictionTimer.schedule(Evictor, long, long)`
+### EvictionTimer.schedule(Evictor, long, long)
+
 `DBCP`是使用`ScheduledThreadPoolExecutor`来实现回收器的定时检测。  涉及到`ThreadPoolExecutor`为`JDK`自带的`api`，这里不再深入分析线程池如何实现定时调度。感兴趣的朋友可以复习下常用的几款线程池。
 
 ```java
@@ -957,8 +910,9 @@ accessToUnderlyingConnectionAllowed=false
         task.setScheduledFuture(scheduledFuture);
     }
 ```
-### `BaseGenericObjectPool.Evictor`
-`Evictor`是`BaseGenericObjectPool`的内部类，实现了`Runnable`接口，这里看下它的run方法。  
+### BaseGenericObjectPool.Evictor
+
+`Evictor`是`BaseGenericObjectPool`的内部类，实现了`Runnable`接口，这里看下它的run方法。
 
 ```java
     class Evictor implements Runnable {
@@ -1014,8 +968,9 @@ accessToUnderlyingConnectionAllowed=false
     }
 ```
 
-### `GenericObjectPool.evict()`
-这里的回收过程包括以下四道校验：  
+### GenericObjectPool.evict()
+
+这里的回收过程包括以下四道校验：
 
 1. 按照`evictionPolicy`校验`idleSoftEvictTime`、`idleEvictTime`；  
 
@@ -1132,7 +1087,7 @@ accessToUnderlyingConnectionAllowed=false
 
 
 
-#  通过`JNDI`获取数据源对象
+#  通过JNDI获取数据源对象
 
 ## 需求
 
@@ -1149,7 +1104,9 @@ accessToUnderlyingConnectionAllowed=false
 | `SharedPoolDataSource`  | `InstanceKeyDataSource`的子类，不同用户共享一个连接池        |
 
 ## 引入依赖
-本文在前面例子的基础上增加以下依赖，因为是web项目，所以打包方式为`war`：  
+
+本文在前面例子的基础上增加以下依赖，因为是web项目，所以打包方式为`war`：
+
 ```xml
 		<dependency>
 			<groupId>javax.servlet</groupId>
@@ -1171,7 +1128,7 @@ accessToUnderlyingConnectionAllowed=false
 		</dependency>
 ```
 
-## 编写`context.xml`
+## 编写context.xml
 
 在`webapp`文件下创建目录`META-INF`，并创建`context.xml`文件。这里面的每个`resource`节点都是我们配置的对象，类似于`spring`的`bean`节点。其中`bean/DriverAdapterCPDS`这个对象需要被另外两个使用到。
 
@@ -1221,7 +1178,7 @@ accessToUnderlyingConnectionAllowed=false
 </Context>
 ```
 
-## 编写`web.xml`
+## 编写web.xml
 
 在`web-app`节点下配置资源引用，每个`resource-env-ref`指向了我们配置好的对象。
 
@@ -1243,7 +1200,7 @@ accessToUnderlyingConnectionAllowed=false
     </resource-env-ref>	
 ```
 
-## 编写`jsp`
+## 编写jsp
 
 因为需要在`web`环境中使用，如果直接建类写个`main`方法测试，会一直报错的，目前没找到好的办法。这里就简单地使用`jsp`来测试吧(这是从tomcat官网参照的例子)。
 
@@ -1282,7 +1239,7 @@ conn2=128868782, URL=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&cha
 
 
 
-# 使用`DBCP`测试两阶段提交
+# 使用DBCP测试两阶段提交
 
 前面源码分析已经讲到，以下类用于支持`JTA`事务。本文将介绍如何使用`DBCP`来实现`JTA`事务两阶段提交（当然，实际项目并不支持使用`2PC`，因为性能开销太大）。
 
@@ -1302,7 +1259,7 @@ SET innodb_support_xa = ON -- 开启XA事务
 
 除了原来的`github_demo`数据库，我另外建了一个`test`数据库，简单地模拟两个数据库。
 
-## `mysql`的`XA`事务使用
+## mysql的XA事务使用
 
 测试之前，这里简单回顾下直接使用`sql`操作`XA`事务的过程，将有助于对以下内容的理解：
 
@@ -1334,7 +1291,7 @@ XA RECOVER; -- 查看处于prepare状态的事务列表
         </dependency>
 ```
 
-## 获取`BasicManagedDataSource`
+## 获取BasicManagedDataSource
 
 这里千万记得要设置`DefaultCatalog`，否则当前事务中注册不同资源管理器时，可能都会被当成同一个资源管理器而拒绝注册并报错，因为这个问题，花了我好长时间才解决。
 

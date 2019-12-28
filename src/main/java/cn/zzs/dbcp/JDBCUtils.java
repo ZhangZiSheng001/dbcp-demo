@@ -19,7 +19,7 @@ import org.apache.commons.logging.LogFactory;
  * @author: zzs
  * @date: 2019年8月31日 下午9:05:08
  */
-public class BasicDataSourceUtil {
+public class JDBCUtils {
 
 	private static DataSource dataSource;
 
@@ -27,7 +27,7 @@ public class BasicDataSourceUtil {
 
 	private static final Object obj = new Object();
 
-	private static final Log log = LogFactory.getLog(BasicDataSourceUtil.class);
+	private static final Log log = LogFactory.getLog(JDBCUtils.class);
 
 	static {
 		init();
@@ -172,7 +172,7 @@ public class BasicDataSourceUtil {
 	private static void init() {
 		// 导入配置文件
 		Properties properties = new Properties();
-		InputStream in = BasicDataSourceUtil.class.getClassLoader().getResourceAsStream("jdbc.properties");
+		InputStream in = JDBCUtils.class.getClassLoader().getResourceAsStream("dbcp.properties");
 		try {
 			properties.load(in);
 			// 根据配置文件内容获得数据源对象

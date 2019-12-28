@@ -1,0 +1,40 @@
+@startuml
+class PoolingDataSource<C extends Connection>{
+        - final ObjectPool<C> pool
+}
+
+class GenericObjectPool<T>{
+    - final PooledObjectFactory<T> factory
+    - final Map<IdentityWrapper<T>, PooledObject<T>> allObjects
+    - final LinkedBlockingDeque<PooledObject<T>> idleObjects
+    - Evictor evictor
+    + T borrowObject()
+    + void returnObject(final T obj)
+}
+
+interface ConnectionFactory
+class DriverConnectionFactory{
+    + Connection createConnection()
+}
+
+interface PooledObjectFactory<T>
+class PoolableConnectionFactory{
+    - final ConnectionFactory connectionFactory
+    - volatile ObjectPool<PoolableConnection> pool
+    + PooledObject<T> makeObject()
+    + void destroyObject(PooledObject<T> p)
+    + boolean validateObject(PooledObject<T> p)
+    + void activateObject(PooledObject<T> p)
+}
+
+GenericObjectPool -down-* PoolingDataSource
+
+DriverConnectionFactory .up.|> ConnectionFactory
+
+PoolableConnectionFactory .up.|> PooledObjectFactory
+
+DriverConnectionFactory -down-* PoolableConnectionFactory
+
+PoolableConnectionFactory -left-* GenericObjectPool
+PoolableConnectionFactory *-right- GenericObjectPool
+@enduml

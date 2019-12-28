@@ -30,9 +30,9 @@ public class BasicDataSourceTest {
 		PreparedStatement statement = null;
 		try {
 			// 获得连接
-			connection = BasicDataSourceUtil.getConnection();
+			connection = JDBCUtils.getConnection();
 			// 开启事务设置非自动提交
-			BasicDataSourceUtil.startTrasaction();
+			JDBCUtils.startTrasaction();
 			// 获得Statement对象
 			statement = connection.prepareStatement(sql);
 			// 设置参数
@@ -44,13 +44,13 @@ public class BasicDataSourceTest {
 			// 执行
 			statement.executeUpdate();
 			// 提交事务
-			BasicDataSourceUtil.commit();
+			JDBCUtils.commit();
 		} catch(Exception e) {
-			BasicDataSourceUtil.rollback();
+			JDBCUtils.rollback();
 			log.error("保存用户失败", e);
 		} finally {
 			// 释放资源
-			BasicDataSourceUtil.release(connection, statement, null);
+			JDBCUtils.release(connection, statement, null);
 		}
 	}
 
@@ -65,9 +65,9 @@ public class BasicDataSourceTest {
 		PreparedStatement statement = null;
 		try {
 			// 获得连接
-			connection = BasicDataSourceUtil.getConnection();
+			connection = JDBCUtils.getConnection();
 			// 开启事务
-			BasicDataSourceUtil.startTrasaction();
+			JDBCUtils.startTrasaction();
 			// 获得Statement对象
 			statement = connection.prepareStatement(sql);
 			// 设置参数
@@ -77,13 +77,13 @@ public class BasicDataSourceTest {
 			// 执行
 			statement.executeUpdate();
 			// 提交事务
-			BasicDataSourceUtil.commit();
+			JDBCUtils.commit();
 		} catch(Exception e) {
 			log.error("异常导致操作回滚", e);
-			BasicDataSourceUtil.rollback();
+			JDBCUtils.rollback();
 		} finally {
 			// 释放资源
-			BasicDataSourceUtil.release(connection, statement, null);
+			JDBCUtils.release(connection, statement, null);
 		}
 	}
 
@@ -99,7 +99,7 @@ public class BasicDataSourceTest {
 		ResultSet resultSet = null;
 		try {
 			// 获得连接
-			connection = BasicDataSourceUtil.getConnection();
+			connection = JDBCUtils.getConnection();
 			// 获得Statement对象
 			statement = connection.prepareStatement(sql);
 			// 执行
@@ -114,7 +114,7 @@ public class BasicDataSourceTest {
 			log.error("查询用户异常", e);
 		} finally {
 			// 释放资源
-			BasicDataSourceUtil.release(connection, statement, resultSet);
+			JDBCUtils.release(connection, statement, resultSet);
 		}
 	}
 
@@ -129,9 +129,9 @@ public class BasicDataSourceTest {
 		PreparedStatement statement = null;
 		try {
 			// 获得连接
-			connection = BasicDataSourceUtil.getConnection();
+			connection = JDBCUtils.getConnection();
 			// 设置非自动提交
-			BasicDataSourceUtil.startTrasaction();
+			JDBCUtils.startTrasaction();
 			// 获得Statement对象
 			statement = connection.prepareStatement(sql);
 			// 设置参数
@@ -139,13 +139,14 @@ public class BasicDataSourceTest {
 			// 执行
 			statement.executeUpdate();
 			// 提交事务
-			BasicDataSourceUtil.commit();
+			JDBCUtils.commit();
 		} catch(Exception e) {
 			log.error("异常导致操作回滚", e);
-			BasicDataSourceUtil.rollback();
+			JDBCUtils.rollback();
 		} finally {
 			// 释放资源
-			BasicDataSourceUtil.release(connection, statement, null);
+			JDBCUtils.release(connection, statement, null);
 		}
 	}
+	
 }

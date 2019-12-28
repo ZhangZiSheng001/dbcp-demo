@@ -1,0 +1,36 @@
+@startuml
+class BasicDataSource{
+    - volatile GenericObjectPool<PoolableConnection> connectionPool
+    - volatile DataSource dataSource
+}
+interface DataSource
+interface BasicDataSourceMXBean
+interface MBeanRegistration
+
+class PoolingDataSource<C extends Connection>{
+        - final ObjectPool<C> pool
+}
+
+class ManagedDataSource<C extends Connection>{
+    - TransactionRegistry transactionRegistry
+}
+
+class BasicManagedDataSource{
+        - TransactionRegistry transactionRegistry
+        - TransactionManager transactionManager
+        - XADataSource xaDataSourceInstance
+}
+
+BasicDataSource .up.|> DataSource
+BasicDataSource .up.|> BasicDataSourceMXBean
+BasicDataSource .up.|> MBeanRegistration
+
+BasicManagedDataSource -up-|> BasicDataSource
+
+PoolingDataSource .up.|> DataSource
+PoolingDataSource -left-* BasicDataSource
+
+ManagedDataSource -up-|> PoolingDataSource
+ManagedDataSource -left-* BasicManagedDataSource
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+interface Connection
+class DelegatingConnection<C extends Connection>{
+    - volatile C connection
+}
+
+class PoolingConnection
+
+class PoolableConnection
+
+class ManagedConnection<C extends Connection>
+
+class PoolableManagedConnection
+
+class PoolGuardConnectionWrapper<D extends Connection>
+
+DelegatingConnection .up.|> Connection
+
+PoolingConnection -up-|> DelegatingConnection
+
+PoolingConnection .left.* PoolableConnection
+
+PoolableConnection -up-|> DelegatingConnection
+
+ManagedConnection -up-|> DelegatingConnection
+
+PoolableManagedConnection -up-|> PoolableConnection
+
+ManagedConnection .left.* PoolableManagedConnection
+
+PoolGuardConnectionWrapper -up-|> DelegatingConnection
+
+PoolableConnection .left.* PoolGuardConnectionWrapper
+
+@enduml
