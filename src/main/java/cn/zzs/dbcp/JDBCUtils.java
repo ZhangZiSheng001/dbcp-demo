@@ -14,8 +14,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
- * @ClassName: BasicDataSourceUtil
- * @Description: 用于获取数据库连接对象的工具类。这里使用BasicDataSource获取连接对象，获取到的连接对象可满足一般的数据库操作
+ * 用于获取数据库连接对象的工具类。这里使用BasicDataSource获取连接对象，获取到的连接对象可满足一般的数据库操作
  * @author: zzs
  * @date: 2019年8月31日 下午9:05:08
  */
@@ -35,8 +34,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: getConnection
-	 * @Description: 获取数据库连接对象的方法，线程安全
+	 * <p>获取数据库连接对象的方法，线程安全</p>
 	 * @author: zzs
 	 * @date: 2019年8月31日 下午9:22:29
 	 * @return: Connection
@@ -58,8 +56,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: release
-	 * @Description: 释放资源
+	 * <p>释放资源</p>
 	 * @author: zzs
 	 * @date: 2019年8月31日 下午9:39:24
 	 * @param conn
@@ -94,8 +91,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: startTrasaction
-	 * @Description: 开启事务
+	 * <p>开启事务</p>
 	 * @author: zzs
 	 * @date: 2019年11月3日 上午11:03:24
 	 * @return: void
@@ -107,8 +103,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: commit
-	 * @Description: 提交事务
+	 * <p>提交事务</p>
 	 * @author: zzs
 	 * @date: 2019年11月3日 上午11:05:54
 	 * @return: void
@@ -127,8 +122,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: rollback
-	 * @Description: 回滚事务
+	 * <p>回滚事务</p>
 	 * @author: zzs
 	 * @date: 2019年11月3日 上午11:08:12
 	 * @return: void
@@ -147,8 +141,7 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * @Title: createConnection
-	 * @Description: 创建数据库连接
+	 * <p>创建数据库连接</p>
 	 * @author: zzs
 	 * @date: 2019年8月31日 下午9:27:03
 	 * @return: Connection
@@ -162,8 +155,7 @@ public class JDBCUtils {
 	}
 
 	/**
-	 * @Title: init
-	 * @Description: 根据指定配置文件创建数据源对象
+	 * <p>根据指定配置文件创建数据源对象</p>
 	 * @author: zzs
 	 * @date: 2019年9月1日 上午10:53:05
 	 * @return: void
