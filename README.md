@@ -463,7 +463,7 @@ accessToUnderlyingConnectionAllowed=false
 
 研究之前，先来看下`BasicDataSource`的`UML`图：
 
-![BasicDataSource的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171436263-280030888.png)
+<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171436263-280030888.png" alt="BasicDataSource的UML图" style="zoom:100%;" />
 
 这里介绍下这几个类的作用：
 
@@ -553,7 +553,7 @@ accessToUnderlyingConnectionAllowed=false
 ```
 以上方法涉及到几个类，这里再补充下`UML`图。
 
-![GenericObjectPool的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171502877-1140170931.png)
+<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171502877-1140170931.png" alt="GenericObjectPool的UML图" style="zoom:100%;" />
 
 
 | 类名                        | 描述                                                         |
@@ -566,7 +566,7 @@ accessToUnderlyingConnectionAllowed=false
 
 上面已经大致分析了数据源和连接池对象的获取过程，接下来研究下连接对象的获取。在此之前先了解下`DBCP`中几个`Connection`实现类。
 
-![DelegatingConnection的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171525594-1114346897.png)
+<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171525594-1114346897.png" alt="DelegatingConnection的UML图" style="zoom:100%;" />
 
 类名|描述
 -|-
