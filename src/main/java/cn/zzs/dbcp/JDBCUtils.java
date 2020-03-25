@@ -91,56 +91,6 @@ public class JDBCUtils {
 
 	/**
 	 * 
-	 * <p>开启事务</p>
-	 * @author: zzs
-	 * @date: 2019年11月3日 上午11:03:24
-	 * @return: void
-	 * @throws Exception 
-	 */
-	public static void startTrasaction() throws SQLException {
-		getConnection().setAutoCommit(false);
-	}
-
-	/**
-	 * 
-	 * <p>提交事务</p>
-	 * @author: zzs
-	 * @date: 2019年11月3日 上午11:05:54
-	 * @return: void
-	 */
-	public static void commit() {
-		Connection connection = tl.get();
-		if(connection != null) {
-			try {
-				connection.commit();
-				connection.setAutoCommit(true);
-			} catch(SQLException e) {
-				log.error("提交事务失败", e);
-			}
-		}
-	}
-
-	/**
-	 * 
-	 * <p>回滚事务</p>
-	 * @author: zzs
-	 * @date: 2019年11月3日 上午11:08:12
-	 * @return: void
-	 */
-	public static void rollback() {
-		Connection connection = tl.get();
-		if(connection != null) {
-			try {
-				connection.rollback();
-				connection.setAutoCommit(true);
-			} catch(SQLException e) {
-				log.error("回滚事务失败", e);
-			}
-		}
-	}
-
-	/**
-	 * 
 	 * <p>创建数据库连接</p>
 	 * @author: zzs
 	 * @date: 2019年8月31日 下午9:27:03

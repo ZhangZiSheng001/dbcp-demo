@@ -7,7 +7,7 @@
   * [主要步骤](#主要步骤)
   * [创建项目](#创建项目)
   * [引入依赖](#引入依赖)
-  * [编写`dbcp.prperties`](#编写dbcpprperties)
+  * [编写dbcp.prperties](#编写dbcpprperties)
   * [获取连接池和获取连接](#获取连接池和获取连接)
   * [编写测试类](#编写测试类)
 * [配置文件详解](#配置文件详解)
@@ -47,7 +47,6 @@
   * [引入依赖](#引入依赖-2)
   * [获取BasicManagedDataSource](#获取basicmanageddatasource)
   * [编写两阶段提交的代码](#编写两阶段提交的代码)
-
 
 
 
@@ -130,7 +129,7 @@
 </dependency>
 ```
 
-## 编写`dbcp.prperties`
+## 编写dbcp.prperties
 
 路径`resources`目录下，因为是入门例子，这里仅给出数据库连接参数和连接池基本参数，后面源码会对配置参数进行详细说明。另外，数据库`sql`脚本也在该目录下。
 
@@ -167,7 +166,7 @@ maxWaitMillis=-1
 
 ## 获取连接池和获取连接
 
-项目中编写了`JDBCUtils`来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。
+项目中编写了`JDBCUtils`来初始化连接池、获取连接和释放资源等，具体参见项目源码。
 
 路径：`cn.zzs.dbcp`
 ```java
@@ -187,7 +186,7 @@ maxWaitMillis=-1
 
 ```java
 	@Test
-	public void save() {
+	public void save() throws SQLException {
 		// 创建sql
 		String sql = "insert into demo_user values(null,?,?,?,?,?)";
 		Connection connection = null;
@@ -196,7 +195,7 @@ maxWaitMillis=-1
 			// 获得连接
 			connection = JDBCUtils.getConnection();
 			// 开启事务设置非自动提交
-			JDBCUtils.startTrasaction();
+			connection.setAutoCommit(false);
 			// 获得Statement对象
 			statement = connection.prepareStatement(sql);
 			// 设置参数
@@ -208,10 +207,7 @@ maxWaitMillis=-1
 			// 执行
 			statement.executeUpdate();
 			// 提交事务
-			JDBCUtils.commit();
-		} catch(Exception e) {
-			JDBCUtils.rollback();
-			log.error("保存用户失败", e);
+			connection.commit();
 		} finally {
 			// 释放资源
 			JDBCUtils.release(connection, statement, null);
@@ -463,7 +459,7 @@ accessToUnderlyingConnectionAllowed=false
 
 研究之前，先来看下`BasicDataSource`的`UML`图：
 
-<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171436263-280030888.png" alt="BasicDataSource的UML图" style="zoom:100%;" />
+![BasicDataSource的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171436263-280030888.png)
 
 这里介绍下这几个类的作用：
 
@@ -517,7 +513,7 @@ accessToUnderlyingConnectionAllowed=false
 			if(dataSource != null) {
 				return dataSource;
 			}
-			// 注册MBean，用于支持JMX，这方面的内容不在这里扩展，相关内容可阅读我的另一篇博客：深入理解JMX
+			// 注册MBean，用于支持JMX，这方面的内容不在这里扩展
 			jmxRegister();
 
 			// 创建原生Connection工厂：本质就是持有数据库驱动对象和几个连接参数
@@ -553,8 +549,7 @@ accessToUnderlyingConnectionAllowed=false
 ```
 以上方法涉及到几个类，这里再补充下`UML`图。
 
-<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171502877-1140170931.png" alt="GenericObjectPool的UML图" style="zoom:100%;" />
-
+![GenericObjectPool的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171502877-1140170931.png)
 
 | 类名                        | 描述                                                         |
 | --------------------------- | ------------------------------------------------------------ |
@@ -566,7 +561,7 @@ accessToUnderlyingConnectionAllowed=false
 
 上面已经大致分析了数据源和连接池对象的获取过程，接下来研究下连接对象的获取。在此之前先了解下`DBCP`中几个`Connection`实现类。
 
-<img src="https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171525594-1114346897.png" alt="DelegatingConnection的UML图" style="zoom:100%;" />
+![DelegatingConnection的UML图](https://img2018.cnblogs.com/blog/1731892/201912/1731892-20191228171525594-1114346897.png)
 
 类名|描述
 -|-
