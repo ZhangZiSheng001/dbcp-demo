@@ -45,7 +45,7 @@ public class JDBCUtils {
 		// 判断为空的话，创建连接并绑定到当前线程
 		if(connection == null) {
 			synchronized(obj) {
-				if(tl.get() == null) {
+				if((connection = tl.get()) == null) {
 					connection = createConnection();
 					tl.set(connection);
 				}
