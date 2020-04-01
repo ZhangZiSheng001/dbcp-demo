@@ -104,22 +104,22 @@
 ```xml
 <!-- junit -->
 <dependency>
-	<groupId>junit</groupId>
-	<artifactId>junit</artifactId>
-	<version>4.12</version>
-	<scope>test</scope>
+    <groupId>junit</groupId>
+    <artifactId>junit</artifactId>
+    <version>4.12</version>
+    <scope>test</scope>
 </dependency>
 <!-- dbcp -->
 <dependency>
-	<groupId>org.apache.commons</groupId>
-	<artifactId>commons-dbcp2</artifactId>
-	<version>2.6.0</version>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-dbcp2</artifactId>
+    <version>2.6.0</version>
 </dependency>
 <!-- log4j -->
 <dependency>
-	<groupId>log4j</groupId>
-	<artifactId>log4j</artifactId>
-	<version>1.2.17</version>
+    <groupId>log4j</groupId>
+    <artifactId>log4j</artifactId>
+    <version>1.2.17</version>
 </dependency>
 <!-- mysql驱动的jar包 -->
 <dependency>
@@ -170,14 +170,14 @@ maxWaitMillis=-1
 
 路径：`cn.zzs.dbcp`
 ```java
-	// 导入配置文件
-	Properties properties = new Properties();
-	InputStream in = JDBCUtil.class.getClassLoader().getResourceAsStream("dbcp.properties");
-	properties.load(in);
-	// 根据配置文件内容获得数据源对象
-	DataSource dataSource = BasicDataSourceFactory.createDataSource(properties);
-	// 获得连接
-	Connection conn = dataSource.getConnection();
+    // 导入配置文件
+    Properties properties = new Properties();
+    InputStream in = JDBCUtil.class.getClassLoader().getResourceAsStream("dbcp.properties");
+    properties.load(in);
+    // 根据配置文件内容获得数据源对象
+    DataSource dataSource = BasicDataSourceFactory.createDataSource(properties);
+    // 获得连接
+    Connection conn = dataSource.getConnection();
 ```
 
 ## 编写测试类
@@ -185,34 +185,34 @@ maxWaitMillis=-1
 这里以保存用户为例，路径test目录下的`cn.zzs.dbcp`。
 
 ```java
-	@Test
-	public void save() throws SQLException {
-		// 创建sql
-		String sql = "insert into demo_user values(null,?,?,?,?,?)";
-		Connection connection = null;
-		PreparedStatement statement = null;
-		try {
-			// 获得连接
-			connection = JDBCUtils.getConnection();
-			// 开启事务设置非自动提交
-			connection.setAutoCommit(false);
-			// 获得Statement对象
-			statement = connection.prepareStatement(sql);
-			// 设置参数
-			statement.setString(1, "zzf003");
-			statement.setInt(2, 18);
-			statement.setDate(3, new Date(System.currentTimeMillis()));
-			statement.setDate(4, new Date(System.currentTimeMillis()));
-			statement.setBoolean(5, false);
-			// 执行
-			statement.executeUpdate();
-			// 提交事务
-			connection.commit();
-		} finally {
-			// 释放资源
-			JDBCUtils.release(connection, statement, null);
-		}
-	}
+    @Test
+    public void save() throws SQLException {
+        // 创建sql
+        String sql = "insert into demo_user values(null,?,?,?,?,?)";
+        Connection connection = null;
+        PreparedStatement statement = null;
+        try {
+            // 获得连接
+            connection = JDBCUtils.getConnection();
+            // 开启事务设置非自动提交
+            connection.setAutoCommit(false);
+            // 获得Statement对象
+            statement = connection.prepareStatement(sql);
+            // 设置参数
+            statement.setString(1, "zzf003");
+            statement.setInt(2, 18);
+            statement.setDate(3, new Date(System.currentTimeMillis()));
+            statement.setDate(4, new Date(System.currentTimeMillis()));
+            statement.setBoolean(5, false);
+            // 执行
+            statement.executeUpdate();
+            // 提交事务
+            connection.commit();
+        } finally {
+            // 释放资源
+            JDBCUtils.release(connection, statement, null);
+        }
+    }
 ```
 
 
@@ -501,51 +501,51 @@ accessToUnderlyingConnectionAllowed=false
 5. 开启空闲资源回收线程（如果设置`timeBetweenEvictionRunsMillis`为正数）。
 
 ```java
-	protected DataSource createDataSource() throws SQLException {
-		if(closed) {
-			throw new SQLException("Data source is closed");
-		}
-		if(dataSource != null) {
-			return dataSource;
-		}
+    protected DataSource createDataSource() throws SQLException {
+        if(closed) {
+            throw new SQLException("Data source is closed");
+        }
+        if(dataSource != null) {
+            return dataSource;
+        }
 
-		synchronized(this) {
-			if(dataSource != null) {
-				return dataSource;
-			}
-			// 注册MBean，用于支持JMX，这方面的内容不在这里扩展
-			jmxRegister();
+        synchronized(this) {
+            if(dataSource != null) {
+                return dataSource;
+            }
+            // 注册MBean，用于支持JMX，这方面的内容不在这里扩展
+            jmxRegister();
 
-			// 创建原生Connection工厂：本质就是持有数据库驱动对象和几个连接参数
-			final ConnectionFactory driverConnectionFactory = createConnectionFactory();
+            // 创建原生Connection工厂：本质就是持有数据库驱动对象和几个连接参数
+            final ConnectionFactory driverConnectionFactory = createConnectionFactory();
 
-			// 将driverConnectionFactory包装成池化Connection工厂
-			PoolableConnectionFactory poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
-			// 设置PreparedStatements缓存（其实在这里可以发现，上面创建池化工厂时就设置了缓存，这里没必要再设置一遍）
-			poolableConnectionFactory.setPoolStatements(poolPreparedStatements);
-			poolableConnectionFactory.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
+            // 将driverConnectionFactory包装成池化Connection工厂
+            PoolableConnectionFactory poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
+            // 设置PreparedStatements缓存（其实在这里可以发现，上面创建池化工厂时就设置了缓存，这里没必要再设置一遍）
+            poolableConnectionFactory.setPoolStatements(poolPreparedStatements);
+            poolableConnectionFactory.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
 
-			// 创建数据库连接池对象GenericObjectPool，用于管理连接
-			// BasicDataSource将持有GenericObjectPool对象
-			createConnectionPool(poolableConnectionFactory);
+            // 创建数据库连接池对象GenericObjectPool，用于管理连接
+            // BasicDataSource将持有GenericObjectPool对象
+            createConnectionPool(poolableConnectionFactory);
 
-			// 创建PoolingDataSource对象
-			// 该对象持有GenericObjectPool对象的引用
-			DataSource newDataSource = createDataSourceInstance();
-			newDataSource.setLogWriter(logWriter);
+            // 创建PoolingDataSource对象
+            // 该对象持有GenericObjectPool对象的引用
+            DataSource newDataSource = createDataSourceInstance();
+            newDataSource.setLogWriter(logWriter);
 
-			// 根据我们设置的initialSize创建初始连接
-			for(int i = 0; i < initialSize; i++) {
-				connectionPool.addObject();
-			}
+            // 根据我们设置的initialSize创建初始连接
+            for(int i = 0; i < initialSize; i++) {
+                connectionPool.addObject();
+            }
 
-			// 开启连接池的evictor线程
-			startPoolMaintenance();
-			// 最后BasicDataSource将持有上面创建的PoolingDataSource对象
-			dataSource = newDataSource;
-			return dataSource;
-		}
-	}
+            // 开启连接池的evictor线程
+            startPoolMaintenance();
+            // 最后BasicDataSource将持有上面创建的PoolingDataSource对象
+            dataSource = newDataSource;
+            return dataSource;
+        }
+    }
 ```
 以上方法涉及到几个类，这里再补充下`UML`图。
 
@@ -1154,24 +1154,24 @@ accessToUnderlyingConnectionAllowed=false
 本文在前面例子的基础上增加以下依赖，因为是web项目，所以打包方式为`war`：
 
 ```xml
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>jstl</artifactId>
-			<version>1.2</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>javax.servlet-api</artifactId>
-			<version>3.1.0</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>javax.servlet.jsp</groupId>
-			<artifactId>javax.servlet.jsp-api</artifactId>
-			<version>2.2.1</version>
-			<scope>provided</scope>
-		</dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>jstl</artifactId>
+            <version>1.2</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet.jsp</groupId>
+            <artifactId>javax.servlet.jsp-api</artifactId>
+            <version>2.2.1</version>
+            <scope>provided</scope>
+        </dependency>
 ```
 
 ## 编写context.xml
@@ -1181,20 +1181,20 @@ accessToUnderlyingConnectionAllowed=false
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <Context>
-	<Resource 
-	    name="bean/SharedPoolDataSourceFactory" 
-	    auth="Container"
-		type="org.apache.commons.dbcp2.datasources.SharedPoolDataSource"
-		factory="org.apache.commons.dbcp2.datasources.SharedPoolDataSourceFactory" 
-		singleton="false" 
-		driverClassName="com.mysql.cj.jdbc.Driver"
-		url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
-		username="root"
-		password="root" 
-		maxTotal="8" 
-		maxIdle="10" 
-		dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
-		 />
+    <Resource 
+        name="bean/SharedPoolDataSourceFactory" 
+        auth="Container"
+        type="org.apache.commons.dbcp2.datasources.SharedPoolDataSource"
+        factory="org.apache.commons.dbcp2.datasources.SharedPoolDataSourceFactory" 
+        singleton="false" 
+        driverClassName="com.mysql.cj.jdbc.Driver"
+        url="jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true" 
+        username="root"
+        password="root" 
+        maxTotal="8" 
+        maxIdle="10" 
+        dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
+         />
     <Resource 
         name="bean/PerUserPoolDataSourceFactory" 
         auth="Container"
@@ -1208,7 +1208,7 @@ accessToUnderlyingConnectionAllowed=false
         maxTotal="8" 
         maxIdle="10" 
         dataSourceName="java:comp/env/bean/DriverAdapterCPDS"
-         />		 
+         />         
     <Resource 
         name="bean/DriverAdapterCPDS" 
         auth="Container"
@@ -1220,7 +1220,7 @@ accessToUnderlyingConnectionAllowed=false
         userName="root"
         userPassword="root" 
         maxIdle="10" 
-         />		 
+         />         
 </Context>
 ```
 
@@ -1233,17 +1233,17 @@ accessToUnderlyingConnectionAllowed=false
         <description>Test DriverAdapterCPDS</description>
         <resource-env-ref-name>bean/DriverAdapterCPDS</resource-env-ref-name>
         <resource-env-ref-type>org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS</resource-env-ref-type>        
-    </resource-env-ref>	
-	<resource-env-ref>
-	    <description>Test SharedPoolDataSource</description>
-	    <resource-env-ref-name>bean/SharedPoolDataSourceFactory</resource-env-ref-name>
-	    <resource-env-ref-type>org.apache.commons.dbcp2.datasources.SharedPoolDataSource</resource-env-ref-type>	    
-	</resource-env-ref>
+    </resource-env-ref>    
+    <resource-env-ref>
+        <description>Test SharedPoolDataSource</description>
+        <resource-env-ref-name>bean/SharedPoolDataSourceFactory</resource-env-ref-name>
+        <resource-env-ref-type>org.apache.commons.dbcp2.datasources.SharedPoolDataSource</resource-env-ref-type>        
+    </resource-env-ref>
     <resource-env-ref>
         <description>Test erUserPoolDataSource</description>
         <resource-env-ref-name>bean/erUserPoolDataSourceFactory</resource-env-ref-name>
         <resource-env-ref-type>org.apache.commons.dbcp2.datasources.erUserPoolDataSource</resource-env-ref-type>        
-    </resource-env-ref>	
+    </resource-env-ref>    
 ```
 
 ## 编写jsp
@@ -1254,22 +1254,22 @@ accessToUnderlyingConnectionAllowed=false
 <body>
     <%  
         // 获得名称服务的上下文对象
-    	Context initCtx = new InitialContext();
-    	Context envCtx = (Context)initCtx.lookup("java:comp/env/");
-    	
-    	// 查找指定名字的对象
-    	DataSource ds = (DataSource)envCtx.lookup("bean/SharedPoolDataSourceFactory");
-    	
-        DataSource ds2 = (DataSource)envCtx.lookup("bean/PerUserPoolDataSourceFactory");    	
-    	// 获取连接
-    	Connection conn = ds.getConnection("root","root");
-    	System.out.println("conn" + conn); 
+        Context initCtx = new InitialContext();
+        Context envCtx = (Context)initCtx.lookup("java:comp/env/");
+        
+        // 查找指定名字的对象
+        DataSource ds = (DataSource)envCtx.lookup("bean/SharedPoolDataSourceFactory");
+        
+        DataSource ds2 = (DataSource)envCtx.lookup("bean/PerUserPoolDataSourceFactory");        
+        // 获取连接
+        Connection conn = ds.getConnection("root","root");
+        System.out.println("conn" + conn); 
         Connection conn2 = ds2.getConnection("zzf","zzf");
         System.out.println("conn2" + conn2); 
         
         // ... 使用连接操作数据库，以及释放资源 ...
-    	conn.close();
-    	conn2.close();
+        conn.close();
+        conn2.close();
     %>
 </body>
 ```
@@ -1325,12 +1325,12 @@ XA RECOVER; -- 查看处于prepare状态的事务列表
 
 ```xml
         <!-- jta:用于测试DBCP对JTA事务的支持 -->
-		<dependency>
-		    <groupId>javax.transaction</groupId>
-		    <artifactId>jta</artifactId>
-		    <version>1.1</version>
-		</dependency>
-		<dependency>
+        <dependency>
+            <groupId>javax.transaction</groupId>
+            <artifactId>jta</artifactId>
+            <version>1.1</version>
+        </dependency>
+        <dependency>
             <groupId>com.atomikos</groupId>
             <artifactId>transactions-jdbc</artifactId>
             <version>3.9.3</version>
@@ -1342,42 +1342,42 @@ XA RECOVER; -- 查看处于prepare状态的事务列表
 这里千万记得要设置`DefaultCatalog`，否则当前事务中注册不同资源管理器时，可能都会被当成同一个资源管理器而拒绝注册并报错，因为这个问题，花了我好长时间才解决。
 
 ```java
-	public BasicManagedDataSource getBasicManagedDataSource(
-			TransactionManager transactionManager, 
-			String url, 
-			String username, 
-			String password) {
-		BasicManagedDataSource basicManagedDataSource = new BasicManagedDataSource();
-		basicManagedDataSource.setTransactionManager(transactionManager);
-		basicManagedDataSource.setUrl(url);
-		basicManagedDataSource.setUsername(username);
-		basicManagedDataSource.setPassword(password);
-		basicManagedDataSource.setDefaultAutoCommit(false);
-		basicManagedDataSource.setXADataSource("com.mysql.cj.jdbc.MysqlXADataSource");
-		return basicManagedDataSource;
-	}
-	@Test
-	public void test01() throws Exception {
-		// 获得事务管理器
-		TransactionManager transactionManager = new UserTransactionManager();
-		
-		// 获取第一个数据库的数据源
-		BasicManagedDataSource basicManagedDataSource1 = getBasicManagedDataSource(
-				transactionManager, 
-				"jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
-				"root", 
-				"root");
-		// 注意，这一步非常重要
-		basicManagedDataSource1.setDefaultCatalog("github_demo");
-		
-		// 获取第二个数据库的数据源
-		BasicManagedDataSource basicManagedDataSource2 = getBasicManagedDataSource(
-				transactionManager, 
-				"jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
-				"zzf", 
-				"zzf");
-		// 注意，这一步非常重要
-		basicManagedDataSource1.setDefaultCatalog("test");
+    public BasicManagedDataSource getBasicManagedDataSource(
+            TransactionManager transactionManager, 
+            String url, 
+            String username, 
+            String password) {
+        BasicManagedDataSource basicManagedDataSource = new BasicManagedDataSource();
+        basicManagedDataSource.setTransactionManager(transactionManager);
+        basicManagedDataSource.setUrl(url);
+        basicManagedDataSource.setUsername(username);
+        basicManagedDataSource.setPassword(password);
+        basicManagedDataSource.setDefaultAutoCommit(false);
+        basicManagedDataSource.setXADataSource("com.mysql.cj.jdbc.MysqlXADataSource");
+        return basicManagedDataSource;
+    }
+    @Test
+    public void test01() throws Exception {
+        // 获得事务管理器
+        TransactionManager transactionManager = new UserTransactionManager();
+        
+        // 获取第一个数据库的数据源
+        BasicManagedDataSource basicManagedDataSource1 = getBasicManagedDataSource(
+                transactionManager, 
+                "jdbc:mysql://localhost:3306/github_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
+                "root", 
+                "root");
+        // 注意，这一步非常重要
+        basicManagedDataSource1.setDefaultCatalog("github_demo");
+        
+        // 获取第二个数据库的数据源
+        BasicManagedDataSource basicManagedDataSource2 = getBasicManagedDataSource(
+                transactionManager, 
+                "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&useSSL=true", 
+                "zzf", 
+                "zzf");
+        // 注意，这一步非常重要
+        basicManagedDataSource1.setDefaultCatalog("test");
     }
 ```
 
@@ -1386,56 +1386,56 @@ XA RECOVER; -- 查看处于prepare状态的事务列表
 通过运行代码可以发现，当数据库1和2的操作都成功，才会提交，只要其中一个数据库执行失败，两个操作都会回滚。
 
 ```java
-	@Test
-	public void test01() throws Exception {	
-		Connection connection1 = null;
-		Statement statement1 = null;
-		Connection connection2 = null;
-		Statement statement2 = null;
-		transactionManager.begin();
-		try {
-			// 获取连接并进行数据库操作，这里会将会将XAResource注册到当前线程的XA事务对象
-			/**
-			 * XA START xid1;-- 启动一个事务，并使之为active状态
-			 */
-			connection1 = basicManagedDataSource1.getConnection();
-			statement1 = connection1.createStatement();
-			/**
-			 * update github_demo.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
-			 */
-			boolean result1 = statement1.execute("update github_demo.demo_user set deleted = 1 where id = '1'");
-			System.out.println(result1);
-			
-			/**
-			 * XA START xid2;-- 启动一个事务，并使之为active状态
-			 */
-			connection2 = basicManagedDataSource2.getConnection();
-			statement2 = connection2.createStatement();
-			/**
-			 * update test.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
-			 */
-			boolean result2 = statement2.execute("update test.demo_user set deleted = 1 where id = '1'");
-			System.out.println(result2);
-			
-			/**
-			 * 当这执行以下语句：
-			 * XA END xid1; -- 把事务置为idle状态
-			 * XA PREPARE xid1; -- 把事务置为prepare状态
-			 * XA END xid2; -- 把事务置为idle状态
-			 * XA PREPARE xid2; -- 把事务置为prepare状态	
-			 * XA COMMIT xid1; -- 提交事务
-			 * XA COMMIT xid2; -- 提交事务
-			 */
-			transactionManager.commit();
-		} catch(Exception e) {
-			e.printStackTrace();
-		} finally {
-			statement1.close();
-			statement2.close();
-			connection1.close();
-			connection2.close();
-		}
-	}
+    @Test
+    public void test01() throws Exception {    
+        Connection connection1 = null;
+        Statement statement1 = null;
+        Connection connection2 = null;
+        Statement statement2 = null;
+        transactionManager.begin();
+        try {
+            // 获取连接并进行数据库操作，这里会将会将XAResource注册到当前线程的XA事务对象
+            /**
+             * XA START xid1;-- 启动一个事务，并使之为active状态
+             */
+            connection1 = basicManagedDataSource1.getConnection();
+            statement1 = connection1.createStatement();
+            /**
+             * update github_demo.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
+             */
+            boolean result1 = statement1.execute("update github_demo.demo_user set deleted = 1 where id = '1'");
+            System.out.println(result1);
+            
+            /**
+             * XA START xid2;-- 启动一个事务，并使之为active状态
+             */
+            connection2 = basicManagedDataSource2.getConnection();
+            statement2 = connection2.createStatement();
+            /**
+             * update test.demo_user set deleted = 1 where id = '1'; -- 事务中的语句
+             */
+            boolean result2 = statement2.execute("update test.demo_user set deleted = 1 where id = '1'");
+            System.out.println(result2);
+            
+            /**
+             * 当这执行以下语句：
+             * XA END xid1; -- 把事务置为idle状态
+             * XA PREPARE xid1; -- 把事务置为prepare状态
+             * XA END xid2; -- 把事务置为idle状态
+             * XA PREPARE xid2; -- 把事务置为prepare状态    
+             * XA COMMIT xid1; -- 提交事务
+             * XA COMMIT xid2; -- 提交事务
+             */
+            transactionManager.commit();
+        } catch(Exception e) {
+            e.printStackTrace();
+        } finally {
+            statement1.close();
+            statement2.close();
+            connection1.close();
+            connection2.close();
+        }
+    }
 ```
 
 > 相关源码请移步：https://github.com/ZhangZiSheng001/dbcp-demo
