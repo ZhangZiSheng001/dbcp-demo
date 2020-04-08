@@ -24,8 +24,6 @@ public class JDBCUtils {
 
     private static ThreadLocal<Connection> tl = new ThreadLocal<>();
 
-    private static final Object obj = new Object();
-
     private static final Log log = LogFactory.getLog(JDBCUtils.class);
 
     static {
@@ -44,12 +42,8 @@ public class JDBCUtils {
         Connection connection = tl.get();
         // 判断为空的话，创建连接并绑定到当前线程
         if(connection == null) {
-            synchronized(obj) {
-                if((connection = tl.get()) == null) {
-                    connection = createConnection();
-                    tl.set(connection);
-                }
-            }
+            connection = createConnection();
+            tl.set(connection);
         }
         return connection;
     }
