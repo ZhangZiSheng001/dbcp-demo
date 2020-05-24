@@ -1,55 +1,3 @@
-# 目录
-
-* [简介](#简介)
-* [使用例子](#使用例子)
-  * [需求](#需求)
-  * [工程环境](#工程环境)
-  * [主要步骤](#主要步骤)
-  * [创建项目](#创建项目)
-  * [引入依赖](#引入依赖)
-  * [编写dbcp.prperties](#编写dbcpprperties)
-  * [获取连接池和获取连接](#获取连接池和获取连接)
-  * [编写测试类](#编写测试类)
-* [配置文件详解](#配置文件详解)
-  * [基本连接属性](#基本连接属性)
-  * [连接池大小参数](#连接池大小参数)
-  * [缓存语句](#缓存语句)
-  * [连接检查参数](#连接检查参数)
-  * [事务相关参数](#事务相关参数)
-  * [连接泄漏回收参数](#连接泄漏回收参数)
-  * [其他](#其他)
-* [源码分析](#源码分析)
-  * [创建数据源和连接池](#创建数据源和连接池)
-    * [BasicDataSource.getConnection()](#basicdatasourcegetconnection)
-    * [BasicDataSource.createDataSource()](#basicdatasourcecreatedatasource)
-  * [获取连接对象](#获取连接对象)
-    * [PoolingDataSource.getConnection()](#poolingdatasourcegetconnection)
-    * [GenericObjectPool.borrowObject()](#genericobjectpoolborrowobject)
-    * [GenericObjectPool.create()](#genericobjectpoolcreate)
-    * [PoolableConnectionFactory.makeObject()](#poolableconnectionfactorymakeobject)
-  * [空闲对象回收器Evictor](#空闲对象回收器evictor)
-    * [BasicDataSource.startPoolMaintenance()](#basicdatasourcestartpoolmaintenance)
-    * [BaseGenericObjectPool.setTimeBetweenEvictionRunsMillis(long)](#basegenericobjectpoolsettimebetweenevictionrunsmillislong)
-    * [BaseGenericObjectPool.startEvictor(long)](#basegenericobjectpoolstartevictorlong)
-    * [EvictionTimer.schedule(Evictor, long, long)](#evictiontimerscheduleevictor-long-long)
-    * [BaseGenericObjectPool.Evictor](#basegenericobjectpoolevictor)
-    * [GenericObjectPool.evict()](#genericobjectpoolevict)
-* [通过JNDI获取数据源对象](#通过jndi获取数据源对象)
-  * [需求](#需求-1)
-  * [引入依赖](#引入依赖-1)
-  * [编写context.xml](#编写contextxml)
-  * [编写web.xml](#编写webxml)
-  * [编写jsp](#编写jsp)
-  * [测试结果](#测试结果)
-* [使用DBCP测试两阶段提交](#使用dbcp测试两阶段提交)
-  * [准备工作](#准备工作)
-  * [mysql的XA事务使用](#mysql的xa事务使用)
-  * [引入依赖](#引入依赖-2)
-  * [获取BasicManagedDataSource](#获取basicmanageddatasource)
-  * [编写两阶段提交的代码](#编写两阶段提交的代码)
-
-
-
 # 简介 
 
 `DBCP`用于创建和管理连接，利用“池”的方式复用连接减少资源开销，和其他连接池一样，也具有连接数控制、连接有效性检测、连接泄露控制、缓存语句等功能。目前，`tomcat`自带的连接池就是`DBCP`，Spring开发组也推荐使用`DBCP`，阿里的`druid`也是参照`DBCP`开发出来的。
@@ -482,13 +430,17 @@ accessToUnderlyingConnectionAllowed=false
 
 ### BasicDataSource.getConnection()
 
-`BasicDataSourceFactory`只是简单地`new`了一个`BasicDataSource`对象并初始化配置参数，此时真正的数据源（`PoolingDataSource`）以及连接池（`GenericObjectPool<PoolableConnection>`）并没有创建，而创建的时机为我们第一次调用`getConnection()`的时候。因此，本文直接从`BasicDataSource`的`getConnection()`方法开始分析。
+`BasicDataSourceFactory.createDataSource(Properties)`只是简单地`new`了一个`BasicDataSource`对象并初始化配置参数，此时真正的数据源（`PoolingDataSource`）以及连接池（`GenericObjectPool`）并没有创建，而创建的时机为我们第一次调用`getConnection()`的时候，如下：
 
 ```java
     public Connection getConnection() throws SQLException {
         return createDataSource().getConnection();
     }
 ```
+
+但是，当我们设置了 initialSize > 0，则在`BasicDataSourceFactory.createDataSource(Properties)`时就会完成数据源和连接池的初始化。感谢[moranshouwang](https://home.cnblogs.com/u/901051/)的指正。
+
+当然，过程都是相同的，只是时机不一样。下面从`BasicDataSource`的`createDataSource()`方法开始分析。
 
 ### BasicDataSource.createDataSource()
 
